@@ -1169,61 +1169,80 @@ body {
 .peasant-cell.side-top { box-shadow: inset 0 3px 0 rgba(158, 28, 28, 0.45), inset 0 2px 8px rgba(0,0,0,0.7); }
 .peasant-cell.side-bottom { box-shadow: inset 0 -3px 0 rgba(207, 161, 43, 0.4), inset 0 2px 8px rgba(0,0,0,0.7); }
 
-/* The seed count is the hero: a bold, high-contrast chip centered in each cell */
+/* Count badge sits in the corner so it never hides the stones */
 .peasant-count {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  min-width: 26px;
-  height: 26px;
+  top: 2px;
+  right: 2px;
+  min-width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 6px;
-  font-size: 15px;
+  padding: 0 4px;
+  font-size: 11px;
   font-weight: 800;
-  color: var(--color-text-primary);
-  background: rgba(8, 4, 4, 0.82);
-  border: 1.5px solid rgba(207, 161, 43, 0.5);
+  color: var(--color-gold-bright);
+  background: rgba(8, 4, 4, 0.85);
+  border: 1px solid rgba(207, 161, 43, 0.45);
   border-radius: 999px;
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
   z-index: 8;
 }
 
-/* 3D Realistic Stone Engine — kept as subtle texture behind the count chip */
+/* Stones laid out in a tidy, non-overlapping grid so they're easy to count */
 .stone-container {
   position: absolute;
-  width: 80%;
-  height: 80%;
-  top: 10%;
-  left: 10%;
+  inset: 0;
   display: flex;
+  flex-wrap: wrap;
+  align-content: center;
   align-items: center;
   justify-content: center;
+  gap: 3px;
+  padding: 8px 5px;
   pointer-events: none;
-  opacity: 0.5;
+  opacity: 1;
   z-index: 1;
 }
 
+/* Crowded cells: shrink stones and tighten the gap to keep a clean grid */
+.stone-container.medium { gap: 2.5px; }
+.stone-container.medium .small-stone { width: 9px; height: 9px; }
+.stone-container.dense { gap: 2px; }
+.stone-container.dense .small-stone { width: 7.5px; height: 7.5px; }
+
 .small-stone {
-  position: absolute;
+  position: relative;
+  flex: 0 0 auto;
   width: 11px;
   height: 11px;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 35%, #f2eedb 0%, #837a6b 70%, #464035 100%);
   box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7), inset -1px -1px 2px rgba(0, 0, 0, 0.4);
-  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  animation: oaq-stone-pop 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .big-stone {
-  position: absolute;
+  position: relative;
+  flex: 0 0 auto;
   width: 24px;
   height: 24px;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 35%, #fff1ba 0%, #d4af37 60%, #705404 100%);
   box-shadow: 2px 2.5px 5px rgba(0, 0, 0, 0.8), inset -1px -1px 3px rgba(0, 0, 0, 0.5);
-  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  animation: oaq-stone-pop 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+@keyframes oaq-stone-pop {
+  from { transform: scale(0.3); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* The mandarin (QUAN) slots are tall — leave room for the label/total badges */
+.mandarin-stones {
+  padding: 20px 5px;
+  gap: 4px;
 }
 
 .direction-picker-overlay {

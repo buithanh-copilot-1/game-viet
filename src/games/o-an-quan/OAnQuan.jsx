@@ -362,29 +362,23 @@ export default function OAnQuan({ onBack, onlineSession }) {
     const stones = [];
 
     for (let i = 0; i < bigCount; i++) {
-      const offset = isMandarin ? { x: (i - (bigCount - 1) / 2) * 16, y: 0 } : { x: 0, y: 0 };
-      stones.push(
-        <div
-          key={`big-${i}`}
-          className="big-stone"
-          style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        />
-      );
+      stones.push(<div key={`big-${i}`} className="big-stone" />);
     }
 
     for (let i = 0; i < smallCount; i++) {
-      const angle = (i * 0.95) * Math.PI;
-      const radius = Math.min(10 + Math.floor(i / 5) * 4, isMandarin ? 28 : 16);
-      stones.push(
-        <div
-          key={`small-${i}`}
-          className="small-stone"
-          style={{ transform: `translate(${Math.cos(angle) * radius}px, ${Math.sin(angle) * radius}px)` }}
-        />
-      );
+      stones.push(<div key={`small-${i}`} className="small-stone" />);
     }
 
-    return <div className="stone-container">{stones}</div>;
+    // Shrink stones a little once a cell gets crowded so they stay in a tidy,
+    // non-overlapping grid that's easy to count at a glance.
+    const total = smallCount + bigCount;
+    const density = total > 12 ? 'dense' : total > 7 ? 'medium' : '';
+
+    return (
+      <div className={`stone-container ${isMandarin ? 'mandarin-stones' : ''} ${density}`}>
+        {stones}
+      </div>
+    );
   };
 
   const renderWinnerStatus = () => {
