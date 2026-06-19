@@ -90,22 +90,22 @@ Tile size = **40px**. Cube footprint = **32px × 32px** (margin 4px mỗi bên).
 
 | Thay đổi | Trạng thái |
 |----------|-----------|
-| Bọc board trong `<div className="matrix-board-wrapper">` | ⬜ Cần làm |
-| Tính `cubeW / cubeD / cubeH` theo `state` | ⬜ Cần làm |
-| Render 6 mặt với đúng kích thước + transform tính từ state | ⬜ Cần làm |
-| Shadow kích thước đúng, `translateZ(0)` nằm sát gạch | ⬜ Cần làm |
+| Bọc board trong `<div className="matrix-board-wrapper">` | ✅ Xong |
+| Tính `cubeW / cubeD / cubeH` theo `state` | ✅ Xong |
+| Render 6 mặt với đúng kích thước + transform tính từ state | ✅ Xong |
+| Shadow kích thước đúng, `translateZ(0)` nằm sát gạch | ✅ Xong |
 
 ---
 
 ## Thứ Tự Thực Hiện
 
 - [x] Bước 1 — Rewrite CSS (perspective, wrapper, face styles)
-- [ ] Bước 2 — JSX: bọc board trong `matrix-board-wrapper`
-- [ ] Bước 3 — JSX: tính kích thước cube theo state
-- [ ] Bước 4 — JSX: render 6 mặt đúng geometry
-- [ ] Bước 5 — JSX: sửa shadow
-- [ ] Bước 6 — Build + kiểm tra compile
-- [ ] Bước 7 — Kiểm tra trực quan browser
+- [x] Bước 2 — JSX: bọc board trong `matrix-board-wrapper`
+- [x] Bước 3 — JSX: tính kích thước cube theo state
+- [x] Bước 4 — JSX: render 6 mặt đúng geometry
+- [x] Bước 5 — JSX: sửa shadow
+- [x] Bước 6 — Build + kiểm tra compile (npm run build ✓ pass)
+- [ ] Bước 7 — Kiểm tra trực quan browser (cần bạn chạy `npm run dev` và xem)
 
 ---
 

@@ -65,7 +65,7 @@ export const playSound = (type) => {
         osc.stop(now + 0.1);
         break;
 
-      case 'win':
+      case 'win': {
         // Ascending major chord arpeggio
         const notes = [261.63, 329.63, 392.00, 523.25]; // C4, E4, G4, C5
         notes.forEach((freq, index) => {
@@ -87,6 +87,7 @@ export const playSound = (type) => {
           noteOsc.stop(noteTime + 0.3);
         });
         break;
+      }
 
       case 'lose':
         // Descending sad buzz

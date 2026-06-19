@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { playSound } from '../../utils/audio';
 import { Coins, RotateCcw, HelpCircle, ArrowLeft } from 'lucide-react';
 import confetti from 'canvas-confetti';

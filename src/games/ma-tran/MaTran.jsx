@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { playSound } from '../../utils/audio';
-import { RotateCcw, HelpCircle, ArrowLeft, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
+import { HelpCircle, ArrowLeft, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 const LEVEL_DATA = [
@@ -89,6 +89,10 @@ export default function MaTran({ onBack }) {
   const [pos, setPos] = useState(level.startPos);
   const [state, setState] = useState('vertical'); // 'vertical' | 'horizontal-x' | 'horizontal-y'
   const [rot, setRot] = useState({ x: 0, y: 0 });
+  // While the brick tips over its contact edge: { dir, fromPos, fromState, phase }.
+  // phase 'start' renders the brick at its old resting pose (pivot 0°); 'roll'
+  // animates the 90° tip-over toward the new pose. null when at rest.
+  const [roll, setRoll] = useState(null);
   const [isFalling, setIsFalling] = useState(false);
   const [isWinning, setIsWinning] = useState(false);
   const [showRules, setShowRules] = useState(false);
@@ -145,6 +149,7 @@ export default function MaTran({ onBack }) {
     setPos(level.startPos);
     setState('vertical');
     setRot({ x: 0, y: 0 });
+    setRoll(null);
     setIsFalling(false);
     setIsWinning(false);
     setBridgeActive(false);
@@ -256,15 +261,25 @@ export default function MaTran({ onBack }) {
       }
     });
 
-    // Update position, rotation and state
-    setPos({ x: newX, y: newY });
+    // Begin the edge-pivot roll: keep drawing the brick at its current resting
+    // pose while a CSS keyframe animation tips it 90° over the contact edge
+    // towards `dir`. The animation starts deterministically the moment the
+    // pivot element renders, so there is no transition "kick-off" stutter.
+    const fromPos = { x: pos.x, y: pos.y };
+    const fromState = state;
     setRot({ x: newRotX, y: newRotY });
-    setState(newState);
+    setRoll({ dir, fromPos, fromState });
 
-    // Validate the new position
+    // When the tip-over finishes, commit the new resting pose/position and
+    // clear the roll (the tipped brick already matches the new pose, so the
+    // swap is seamless), then validate the landing. Matches the 220ms CSS
+    // animation with a tiny buffer so we never commit mid-animation.
     setTimeout(() => {
+      setPos({ x: newX, y: newY });
+      setState(newState);
+      setRoll(null);
       checkNewPosition(newX, newY, newState);
-    }, 180);
+    }, 225);
   };
 
   const checkNewPosition = (x, y, blockState) => {
@@ -400,22 +415,46 @@ export default function MaTran({ onBack }) {
           else continue; // Don't render closed bridge tiles
         }
 
-        // Flat floor 3D slab translation
-        const zVal = 0;
-        const shadowThickness = 4.5;
-        
+        // Continuous floor: cells butt together seamlessly (the top face fills
+        // its whole 40×40 cell with no gap/rounding) and grid lines are drawn
+        // on top. Real 3D thickness comes from side walls rendered ONLY on the
+        // outer boundary edges (where there is no walkable neighbour), so the
+        // whole walkable area reads as one carved slab, not stacked cubes.
+        const T = 12; // slab thickness (px)
+        const isFilled = (tx, ty) =>
+          ty >= 0 && ty < level.height && tx >= 0 && tx < level.width &&
+          level.tiles[ty][tx] !== 0 &&
+          !(level.tiles[ty][tx] === 6 && !bridgeActive); // closed bridge = gap
+        const wallS = !isFilled(x, y + 1); // south boundary
+        const wallE = !isFilled(x + 1, y); // east boundary
+        const wallN = !isFilled(x, y - 1); // north boundary
+        const wallW = !isFilled(x - 1, y); // west boundary
+
         tilesToRender.push(
-          <div 
+          <div
             key={`${x},${y}`}
-            className={tileClass}
-            style={{
-              left: `${x * 40}px`,
-              top: `${y * 40}px`,
-              transform: `translateZ(${zVal}px)`,
-              boxShadow: `0 ${shadowThickness}px 0 #150806, 0 8px 15px rgba(0,0,0,0.7)`
-            }}
+            className={`matrix-tile-slab ${isBroken ? 'broken' : ''}`}
+            style={{ left: `${x * 40}px`, top: `${y * 40}px` }}
           >
-            {type === 3 && <div className="goal-hole" />}
+            <div className={tileClass} style={{ transform: 'translateZ(0px)' }}>
+              {type === 3 && <div className="goal-hole" />}
+            </div>
+            {wallS && (
+              <div className="matrix-tile-side side-south"
+                style={{ height: `${T}px`, transform: 'translateY(40px) rotateX(-90deg)', transformOrigin: 'top' }} />
+            )}
+            {wallE && (
+              <div className="matrix-tile-side side-east"
+                style={{ width: `${T}px`, transform: 'translateX(40px) rotateY(90deg)', transformOrigin: 'left' }} />
+            )}
+            {wallN && (
+              <div className="matrix-tile-side side-north"
+                style={{ height: `${T}px`, transform: 'rotateX(-90deg)', transformOrigin: 'top' }} />
+            )}
+            {wallW && (
+              <div className="matrix-tile-side side-west"
+                style={{ width: `${T}px`, transform: 'rotateY(90deg)', transformOrigin: 'left' }} />
+            )}
           </div>
         );
       }
@@ -426,32 +465,110 @@ export default function MaTran({ onBack }) {
   const boardWidth = level.width * 40;
   const boardHeight = level.height * 40;
 
-  // Constant dimensions of the 3D cuboid block
-  const width = 32;
-  const length = 32;
-  const height = 64;
+  // ---- 3D cuboid geometry ----
+  // The brick is a FIXED 1×1×2 cuboid in its own local frame:
+  //   X span = 32 (W), Y span = 32 (D), Z span = 64 (H, tall).
+  // Orientation is produced ONLY by the accumulated rotation (rot.x / rot.y),
+  // never by resizing the faces. `state` is used solely to position/lift the
+  // container so the resting brick sits flush on the tile(s).
+  // Brick fills a full tile (40) so its contact edges line up exactly with the
+  // grid. This makes the edge-pivot roll land precisely on the next cell with
+  // no settle/snap at the end of the animation.
+  const W = 40; // local X
+  const D = 40; // local Y
+  const H = 80; // local Z (height when standing) = two tiles tall
 
-  // Flat grid floor
-  const cubeZVal = 0;
+  // cube-3d wrapper is a zero-size point at the container center; faces are
+  // placed relative to it. We center the wrapper inside the 40px container.
+  const pivotLeft = 20;
+  const pivotTop = 20;
 
-  // Compute transform state for rolling cube
-  let cubeContainerTransform = `translateZ(${cubeZVal + (state === 'vertical' ? 32 : 16)}px)`;
+  // Fixed brick faces. Tall axis (H) runs along world Z (up) so the brick
+  // STANDS at rest. The 4 walls are first laid down with rotateX(90deg) so
+  // their CSS height maps onto Z, then spun around Z to face each side.
+  //   - front/back walls: 32 wide (X) × 64 tall (Z), normal along ±Y
+  //   - left/right walls : 32 wide (Y) × 64 tall (Z), normal along ±X
+  //   - top/bottom caps  : 32 (X) × 32 (Y), normal along ±Z
+  const cubeFaces = [
+    { name: 'front',  w: W, h: H, transform: `rotateX(90deg) translateZ(${D / 2}px)` },
+    { name: 'back',   w: W, h: H, transform: `rotateX(90deg) rotateY(180deg) translateZ(${D / 2}px)` },
+    { name: 'right',  w: D, h: H, transform: `rotateX(90deg) rotateY(90deg)  translateZ(${W / 2}px)` },
+    { name: 'left',   w: D, h: H, transform: `rotateX(90deg) rotateY(-90deg) translateZ(${W / 2}px)` },
+    { name: 'top',    w: W, h: D, transform: `translateZ(${H / 2}px)` },
+    { name: 'bottom', w: W, h: D, transform: `rotateX(180deg) translateZ(${H / 2}px)` },
+  ];
+
+  // Resting geometry for any (pos, state): where the container sits, how high
+  // its centre rides, the brick's pose, and the ground-shadow footprint.
+  //   vertical     → standing (long Z axis up),   centre 32 above the tile
+  //   horizontal-x → lying along world X,         centre 16 above the tile
+  //   horizontal-y → lying along world Y,         centre 16 above the tile
+  const restGeometry = (p, s) => {
+    let pose = 'rotateX(0deg) rotateY(0deg)';
+    if (s === 'horizontal-x') pose = 'rotateY(90deg)';
+    else if (s === 'horizontal-y') pose = 'rotateX(90deg)';
+    // Half-extents of the brick's bounding box in this rest state.
+    const hx = s === 'horizontal-x' ? 40 : 20;
+    const hy = s === 'horizontal-y' ? 40 : 20;
+    const hz = s === 'vertical' ? 40 : 20;
+    return {
+      left: p.x * 40 + (s === 'horizontal-x' ? 20 : 0),
+      top: p.y * 40 + (s === 'horizontal-y' ? 20 : 0),
+      lift: hz,
+      pose,
+      hx, hy, hz,
+      shadowW: hx * 2,
+      shadowL: hy * 2,
+    };
+  };
+
+  // During a roll, the brick is drawn at its OLD resting pose and tipped over
+  // the contact edge; otherwise it is drawn at the committed (pos, state).
+  const drawPos = roll ? roll.fromPos : pos;
+  const drawState = roll ? roll.fromState : state;
+  const geo = restGeometry(drawPos, drawState);
+
+  // The stone floor's top face sits at Z=0 (its 12px thickness extrudes
+  // downward), so the brick rests directly on the Z=0 board plane.
+  const FLOOR_TOP = 0;
+  const cubeRotation = geo.pose;
+  const cubeLift = geo.lift;
+  const containerLeft = geo.left;
+  const containerTop = geo.top;
+  const shadowWidth = geo.shadowW;
+  const shadowLength = geo.shadowL;
+  const shadowLeft = (40 - shadowWidth) / 2;
+  const shadowTop = (40 - shadowLength) / 2;
+  // Shadow sits on the stone surface (relative to the lifted container centre).
+  const shadowTranslateZ = -cubeLift + 0.5;
+
+  let cubeContainerTransform = `translateZ(${FLOOR_TOP + cubeLift}px)`;
   if (isFalling) {
     cubeContainerTransform = `translateZ(-250px) rotateX(140deg) rotateY(140deg)`;
   } else if (isWinning) {
-    cubeContainerTransform = `translateZ(${cubeZVal - 44}px) scale(0.05)`;
+    cubeContainerTransform = `translateZ(-44px) scale(0.05)`;
   }
 
-  // Container positioning offsets based on horizontal state
-  const containerLeft = pos.x * 40 + (state === 'horizontal-x' ? 20 : 0);
-  const containerTop = pos.y * 40 + (state === 'horizontal-y' ? 20 : 0);
-
-  // Shadow dimensions and offsets
-  const shadowWidth = state === 'horizontal-x' ? 64 : 24;
-  const shadowLength = state === 'horizontal-y' ? 64 : 24;
-  const shadowLeft = state === 'horizontal-x' ? -12 : 8;
-  const shadowTop = state === 'horizontal-y' ? -12 : 8;
-  const shadowTranslateZ = state === 'vertical' ? -31.5 : -15.5;
+  // The pivot layer tips the brick 90° about the contact edge in the direction
+  // of travel. transform-origin is placed at that bottom edge (in the container's
+  // 40×40 local box, with Z=0 at the tile surface = -cubeLift from the centre).
+  // Edge per direction (looking down on the board, before iso tilt):
+  //   right → east edge,  left → west edge,  down → south edge,  up → north edge
+  // Pivot about the brick's true contact edge: cube centre is at container
+  // (20, 20); the edge is half-extent away in the travel direction, at the
+  // stone surface (z = -lift below the centre).
+  const c = 20; // cube centre in the 40×40 container
+  let pivotOrigin = '50% 50%';
+  let pivotAnimation = 'none';
+  if (roll) {
+    const z0 = -cubeLift;
+    switch (roll.dir) {
+      case 'right': pivotOrigin = `${c + geo.hx}px ${c}px ${z0}px`; pivotAnimation = 'roll-right'; break;
+      case 'left':  pivotOrigin = `${c - geo.hx}px ${c}px ${z0}px`; pivotAnimation = 'roll-left';  break;
+      case 'down':  pivotOrigin = `${c}px ${c + geo.hy}px ${z0}px`; pivotAnimation = 'roll-down';  break;
+      case 'up':    pivotOrigin = `${c}px ${c - geo.hy}px ${z0}px`; pivotAnimation = 'roll-up';    break;
+    }
+  }
 
   return (
     <div className="game-container">
@@ -497,58 +614,88 @@ export default function MaTran({ onBack }) {
 
           {/* 3D Isometric Viewport */}
           <div className="matrix-3d-scene" style={{ minHeight: `${boardHeight + 120}px` }}>
-            <div 
-              className="matrix-board-3d"
-              style={{
-                width: `${boardWidth}px`,
-                height: `${boardHeight}px`,
-              }}
-            >
-              {/* Grid Tiles */}
-              {renderGrid()}
-
-              {/* Rolling 3D Cube */}
-              <div 
-                className={`cube-container-3d ${isFalling ? 'falling' : ''} ${isWinning ? 'winning' : ''}`}
+            <div className="matrix-board-wrapper">
+              <div
+                className="matrix-board-3d"
                 style={{
-                  left: `${containerLeft}px`,
-                  top: `${containerTop}px`,
-                  width: '40px',
-                  height: '40px',
-                  transform: cubeContainerTransform
+                  width: `${boardWidth}px`,
+                  height: `${boardHeight}px`,
                 }}
               >
-                {!isFalling && (
-                  <div 
-                    className="cube-shadow" 
-                    style={{
-                      width: `${shadowWidth}px`,
-                      height: `${shadowLength}px`,
-                      left: `${shadowLeft}px`,
-                      top: `${shadowTop}px`,
-                      transform: `translateZ(${shadowTranslateZ}px)`
-                    }}
-                  />
-                )}
-                <div 
-                  className="cube-3d"
+                {/* Grid Tiles */}
+                {renderGrid()}
+
+                {/* Rolling 3D Cube */}
+                <div
+                  className={`cube-container-3d ${isFalling ? 'falling' : ''} ${isWinning ? 'winning' : ''}`}
                   style={{
-                    width: '32px',
-                    height: '32px',
-                    left: '4px',
-                    top: '4px',
-                    transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)`
+                    left: `${containerLeft}px`,
+                    top: `${containerTop}px`,
+                    width: '40px',
+                    height: '40px',
+                    transform: cubeContainerTransform
                   }}
                 >
-                  <div className="cube-face face-front" style={{ width: '32px', height: '32px', left: '50%', top: '50%', marginLeft: '-16px', marginTop: '-16px', transform: 'rotateY(0deg) translateZ(32px)' }}><GoldMotif /></div>
-                  <div className="cube-face face-back" style={{ width: '32px', height: '32px', left: '50%', top: '50%', marginLeft: '-16px', marginTop: '-16px', transform: 'rotateY(180deg) translateZ(32px)' }}><GoldMotif /></div>
-                  <div className="cube-face face-left" style={{ width: '32px', height: '64px', left: '50%', top: '50%', marginLeft: '-16px', marginTop: '-32px', transform: 'rotateY(-90deg) translateZ(16px)' }}><GoldMotif /></div>
-                  <div className="cube-face face-right" style={{ width: '32px', height: '64px', left: '50%', top: '50%', marginLeft: '-16px', marginTop: '-32px', transform: 'rotateY(90deg) translateZ(16px)' }}><GoldMotif /></div>
-                  <div className="cube-face face-top" style={{ width: '32px', height: '64px', left: '50%', top: '50%', marginLeft: '-16px', marginTop: '-32px', transform: 'rotateX(90deg) translateZ(16px)' }}><GoldMotif /></div>
-                  <div className="cube-face face-bottom" style={{ width: '32px', height: '64px', left: '50%', top: '50%', marginLeft: '-16px', marginTop: '-32px', transform: 'rotateX(-90deg) translateZ(16px)' }}><GoldMotif /></div>
+                  {!isFalling && (
+                    <div
+                      className="cube-shadow"
+                      style={{
+                        width: `${shadowWidth}px`,
+                        height: `${shadowLength}px`,
+                        left: `${shadowLeft}px`,
+                        top: `${shadowTop}px`,
+                        transform: `translateZ(${shadowTranslateZ}px)`
+                      }}
+                    />
+                  )}
+                  <div
+                    className="cube-pivot"
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      width: '40px',
+                      height: '40px',
+                      transformStyle: 'preserve-3d',
+                      transformOrigin: pivotOrigin,
+                      willChange: 'transform',
+                      animation: roll
+                        ? `${pivotAnimation} 0.22s cubic-bezier(0.34, 0, 0.32, 1) forwards`
+                        : 'none'
+                    }}
+                  >
+                  <div
+                    className="cube-3d"
+                    style={{
+                      width: '0px',
+                      height: '0px',
+                      left: `${pivotLeft}px`,
+                      top: `${pivotTop}px`,
+                      transform: cubeRotation
+                    }}
+                  >
+                    {cubeFaces.map((f) => (
+                      <div
+                        key={f.name}
+                        className={`cube-face face-${f.name}`}
+                        style={{
+                          width: `${f.w}px`,
+                          height: `${f.h}px`,
+                          left: '50%',
+                          top: '50%',
+                          marginLeft: `${-f.w / 2}px`,
+                          marginTop: `${-f.h / 2}px`,
+                          transform: f.transform
+                        }}
+                      >
+                        <GoldMotif />
+                      </div>
+                    ))}
+                  </div>
+                  </div>
                 </div>
-              </div>
 
+              </div>
             </div>
           </div>
 

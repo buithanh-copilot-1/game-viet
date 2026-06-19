@@ -117,6 +117,11 @@ body {
   100% { transform: translateZ(2px) rotate(360deg); }
 }
 
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.5; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
 /* Common UI layout elements */
 .app-container {
   display: flex;
@@ -334,6 +339,137 @@ body {
   border-color: var(--color-gold);
   background: linear-gradient(135deg, var(--color-lacquer-red) 0%, var(--color-wood-dark) 100%);
   transform: rotate(5deg);
+}
+
+.game-card-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.game-card-online {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+}
+
+.online-room-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.online-room-card {
+  width: 100%;
+  max-width: 380px;
+  background: rgba(22, 13, 13, 0.86);
+  border: 1px solid rgba(207, 161, 43, 0.24);
+  border-radius: 18px;
+  padding: 18px;
+  box-sizing: border-box;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+.online-room-heading {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 18px;
+  color: var(--color-gold-bright);
+}
+
+.online-room-heading h2 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 20px;
+}
+
+.online-room-heading p {
+  margin: 4px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.online-room-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.online-room-divider::before,
+.online-room-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(207, 161, 43, 0.18);
+}
+
+.online-join-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.online-room-input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border-radius: 12px;
+  border: 1px solid rgba(207, 161, 43, 0.28);
+  background: rgba(10, 5, 5, 0.8);
+  color: var(--color-text-primary);
+  padding: 12px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-align: center;
+  outline: none;
+}
+
+.online-room-input:focus {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 2px rgba(207, 161, 43, 0.14);
+}
+
+.online-join-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+}
+
+.online-room-status {
+  margin-top: 12px;
+  color: var(--color-gold-bright);
+  font-size: 12px;
+  text-align: center;
+}
+
+.online-server-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-gold);
+  box-shadow: 0 0 10px rgba(207, 161, 43, 0.75);
+}
+
+.online-game-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--color-gold-bright);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 /* Footer Section */
@@ -944,6 +1080,8 @@ body {
 
 .peasant-row {
   display: flex;
+  flex: 1;
+  min-height: 0;
 }
 
 .peasant-row-top {
@@ -1101,6 +1239,10 @@ body {
   /* perspective must be on the PARENT, not on board itself */
   perspective: 900px;
   perspective-origin: 50% 30%;
+  /* Scale the whole isometric board to fit narrow screens. The widest level
+     projects to ~426px; --matrix-scale is dialled down via media queries. */
+  transform: scale(var(--matrix-scale, 1));
+  transform-origin: center center;
 }
 
 .matrix-board-3d {
@@ -1109,68 +1251,98 @@ body {
   transform-style: preserve-3d;
 }
 
-/* ---- Tile base (top face only — the slab depth is faked with box-shadow) ---- */
-.matrix-tile {
+/* ---- Real 3D stone slab: positioning wrapper holding a top face + side walls ---- */
+.matrix-tile-slab {
   position: absolute;
   width: 40px;
   height: 40px;
-  background: linear-gradient(160deg, #332019 0%, #1a0e0e 100%);
-  border: 1.5px solid rgba(207, 161, 43, 0.28);
-  border-radius: 4px;
-  /* box-shadow depth trick: down = towards viewer in isometric  */
-  box-shadow:
-    0 6px 0 0 #110704,
-    0 7px 0 0 #0d0503,
-    0 0 20px rgba(0,0,0,0.5);
+  transform-style: preserve-3d;
+}
+
+/* Top face — fills the whole cell so neighbours form one continuous stone
+   surface. The cell boundary is a thin engraved grid line (inset box-shadow),
+   not a gap. */
+.matrix-tile {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* 1px larger than the cell so neighbours overlap and no sub-pixel crack can
+     show the background through the isometric 3D transform — the floor stays
+     perfectly khít. */
+  width: 41px;
+  height: 41px;
+  background:
+    radial-gradient(ellipse 70% 60% at 35% 30%, rgba(110, 113, 120, 0.4) 0%, transparent 65%),
+    linear-gradient(150deg, #565961 0%, #474a50 55%, #3a3d42 100%);
+  /* Single thin uniform hairline on all edges. Two neighbours share it as one
+     faint engraved line, so the slabs read as one continuous floor (khít),
+     not separate squares with a deep bevelled groove. */
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.32);
   box-sizing: border-box;
   transform-style: preserve-3d;
 }
 
+/* Outer side walls — only rendered on the slab's boundary, so the whole
+   walkable region reads as one thick carved rock, not stacked cubes. */
+.matrix-tile-side {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(180deg, #3a3d42 0%, #26282c 55%, #15161a 100%);
+  box-sizing: border-box;
+}
+.matrix-tile-side.side-east,
+.matrix-tile-side.side-north {
+  background: linear-gradient(180deg, #2e3034 0%, #1d1f22 55%, #101114 100%);
+}
+
+/* Accent tiles keep the engraved grid line (so the floor stays continuous)
+   and add a coloured glow on top to mark their role. No fake extrusion — the
+   real boundary side walls provide depth. */
 .matrix-tile.start {
-  background: linear-gradient(160deg, #1c4b5e 0%, #0d2833 100%);
-  border-color: #34ace0;
+  background:
+    radial-gradient(ellipse 60% 50% at 30% 25%, rgba(90, 170, 200, 0.4) 0%, transparent 60%),
+    linear-gradient(150deg, #2a5566 0%, #16303b 50%, #0e2129 100%);
   box-shadow:
-    0 6px 0 0 #07161c,
-    0 7px 0 0 #050f14,
-    0 0 18px rgba(52, 172, 224, 0.25);
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.35),
+    inset 0 0 14px rgba(52, 172, 224, 0.35);
 }
 
 .matrix-tile.goal-tile {
-  background: linear-gradient(160deg, #4a3510 0%, #211909 100%);
-  border-color: var(--color-gold);
+  background:
+    radial-gradient(ellipse 60% 50% at 30% 25%, rgba(220, 180, 90, 0.4) 0%, transparent 60%),
+    linear-gradient(150deg, #5a5048 0%, #3a342c 50%, #26221c 100%);
   box-shadow:
-    0 6px 0 0 #120d04,
-    0 7px 0 0 #0e0a02,
-    0 0 18px rgba(207, 161, 43, 0.3);
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.4),
+    inset 0 0 16px rgba(207, 161, 43, 0.4);
 }
 
 .matrix-tile.switch-tile {
-  background: linear-gradient(160deg, #5c4a16 0%, #2b230a 100%);
-  border-color: var(--color-gold-bright);
+  background: linear-gradient(150deg, #5c4a16 0%, #3a2f0c 55%, #2b230a 100%);
   box-shadow:
-    0 6px 0 0 #151104,
-    0 7px 0 0 #100d03;
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.35),
+    inset 0 0 14px rgba(207, 161, 43, 0.3);
 }
 
 .matrix-tile.switch-active {
   background: var(--color-gold);
-  box-shadow: inset 0 0 12px rgba(0,0,0,0.9), 0 3px 0 #151104;
+  box-shadow: inset 0 0 12px rgba(0,0,0,0.9), inset 0 0 0 1px rgba(0,0,0,0.4);
 }
 
 .matrix-tile.fragile-tile {
-  background: linear-gradient(160deg, #591b1b 0%, #2d0e0e 100%);
-  border-color: #ff5e5e;
+  background: linear-gradient(150deg, #591b1b 0%, #3d1212 55%, #2d0e0e 100%);
   box-shadow:
-    0 6px 0 0 #1f0707,
-    0 7px 0 0 #170505;
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.35),
+    inset 0 0 12px rgba(255, 94, 94, 0.25);
 }
 
 .matrix-tile.fragile-stepped {
-  background: linear-gradient(160deg, #a61c1c 0%, #591b1b 100%);
-  border-color: #ef4444;
+  background: linear-gradient(150deg, #a61c1c 0%, #6e1818 55%, #591b1b 100%);
   box-shadow:
-    0 4px 0 0 #1f0707,
-    0 5px 0 0 #170505;
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.4),
+    inset 0 0 10px rgba(255, 94, 94, 0.2);
 }
 
 .matrix-tile.broken {
@@ -1190,15 +1362,38 @@ body {
 
 .goal-hole {
   position: absolute;
-  width: 26px;
-  height: 26px;
-  left: 6px;
-  top: 6px;
+  width: 28px;
+  height: 28px;
+  left: 5px;
+  top: 5px;
   border-radius: 50%;
-  background: radial-gradient(circle at center, #000 30%, #7c1212 70%, #cfa12b 100%);
-  border: 2px solid var(--color-gold);
-  box-shadow: 0 0 15px var(--color-gold-bright), inset 0 0 8px #000;
+  /* A deep glowing pit: pitch-black core falling away to a hot gold rim. */
+  background:
+    radial-gradient(circle at 50% 45%,
+      #000 0%,
+      #000 34%,
+      #5e0e0e 56%,
+      #b9831f 80%,
+      #f6d166 100%);
+  border: 2px solid var(--color-gold-bright);
+  box-shadow:
+    0 0 4px 1px rgba(246, 209, 102, 0.9),
+    0 0 16px 3px rgba(207, 161, 43, 0.55),
+    inset 0 3px 8px rgba(0, 0, 0, 0.95),
+    inset 0 -1px 3px rgba(246, 209, 102, 0.4);
   animation: vortex-spin 4s linear infinite;
+  z-index: 6;
+}
+
+/* Soft glowing aura rising from the goal pit */
+.goal-hole::before {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(246, 209, 102, 0.35) 0%, transparent 70%);
+  animation: pulse-soft 2.4s ease-in-out infinite;
+  pointer-events: none;
 }
 
 /* ========================================================
@@ -1220,11 +1415,8 @@ body {
   width: 40px;
   height: 40px;
   transform-style: preserve-3d;
-  /* smooth slide + roll in one transition */
-  transition:
-    left   0.20s cubic-bezier(0.25, 0.8, 0.25, 1),
-    top    0.20s cubic-bezier(0.25, 0.8, 0.25, 1),
-    transform 0.20s cubic-bezier(0.25, 0.8, 0.25, 1);
+  /* Position/pose commit instantly at the end of a roll — the visual tip-over
+     is animated on the inner .cube-pivot layer instead. */
 }
 
 .cube-container-3d.falling {
@@ -1250,35 +1442,98 @@ body {
   transform: translateZ(0px);
 }
 
-/* The inner cube rotates around its center */
+/* ========================================================
+   RESPONSIVE / MOBILE
+   The isometric Ma Trận board projects ~426px wide at its widest level.
+   Scale it down so it never overflows narrow screens, and tighten spacing.
+   ======================================================== */
+@media (max-width: 480px) {
+  .app-container { padding: 14px; }
+  .matrix-3d-scene { padding: 18px 6px; }
+  :root { --matrix-scale: 0.84; }
+}
+
+@media (max-width: 400px) {
+  .app-container { padding: 10px; }
+  .matrix-3d-scene { padding: 14px 4px; }
+  :root { --matrix-scale: 0.74; }
+  /* Compact D-Pad so controls stay above the fold on short phones */
+  .dpad-container { width: 124px; height: 124px; gap: 8px; }
+  .dpad-btn { width: 38px; height: 38px; }
+}
+
+@media (max-width: 340px) {
+  :root { --matrix-scale: 0.66; }
+}
+
+/* The inner cube holds the resting pose; pose swaps are instant. */
 .cube-3d {
   position: absolute;
   transform-style: preserve-3d;
-  transition: transform 0.20s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* Edge-pivot roll animations — the brick tips 90° over its contact edge in the
+   direction of travel. transform-origin (set inline) is the bottom edge. */
+.cube-pivot { transform: rotate3d(0, 0, 1, 0deg); }
+@keyframes roll-right {
+  from { transform: rotate3d(0, 1, 0, 0deg); }
+  to   { transform: rotate3d(0, 1, 0, 90deg); }
+}
+@keyframes roll-left {
+  from { transform: rotate3d(0, 1, 0, 0deg); }
+  to   { transform: rotate3d(0, 1, 0, -90deg); }
+}
+@keyframes roll-down {
+  from { transform: rotate3d(1, 0, 0, 0deg); }
+  to   { transform: rotate3d(1, 0, 0, -90deg); }
+}
+@keyframes roll-up {
+  from { transform: rotate3d(1, 0, 0, 0deg); }
+  to   { transform: rotate3d(1, 0, 0, 90deg); }
 }
 
 /* All 6 faces share these base styles */
 .cube-face {
   position: absolute;
-  border: 1.5px solid var(--color-gold);
-  background: radial-gradient(circle at 40% 35%,
-    rgba(200, 40, 40, 0.92) 0%,
-    rgba(110, 12, 12, 0.96) 60%,
-    rgba(60, 4, 4, 1) 100%);
-  box-shadow: inset 0 0 10px rgba(246, 209, 102, 0.5), 0 0 6px rgba(0,0,0,0.7);
+  /* Carved WOODEN block: warm timber tone with fine vertical grain lines and
+     a dark bevelled wood frame. */
+  border: 2px solid #3a2113;
+  background:
+    /* fine grain striations */
+    repeating-linear-gradient(92deg,
+      rgba(60, 33, 16, 0.35) 0px,
+      rgba(60, 33, 16, 0.35) 1px,
+      transparent 1px,
+      transparent 4px),
+    /* broader light/dark grain bands */
+    repeating-linear-gradient(90deg,
+      rgba(120, 78, 40, 0.18) 0px,
+      rgba(120, 78, 40, 0.18) 5px,
+      rgba(80, 48, 22, 0.18) 5px,
+      rgba(80, 48, 22, 0.18) 11px),
+    linear-gradient(160deg, #9a5f30 0%, #7a4521 48%, #5a3217 100%);
+  box-shadow:
+    inset 0 2px 4px rgba(214, 160, 100, 0.4),
+    inset 0 -4px 8px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.25),
+    0 0 7px rgba(0, 0, 0, 0.65);
   display: flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
   backface-visibility: visible;
 }
+/* Inset wood panel groove with a subtle gold motif frame */
 .cube-face::after {
   content: '';
   position: absolute;
-  inset: 3px;
-  border: 1px solid rgba(246, 209, 102, 0.18);
+  inset: 4px;
+  border: 1px solid rgba(207, 161, 43, 0.3);
+  border-radius: 2px;
+  box-shadow:
+    inset 0 0 6px rgba(0, 0, 0, 0.45),
+    inset 0 1px 1px rgba(214, 160, 100, 0.3);
   pointer-events: none;
-  border-radius: 1px;
 }
 
 /* Virtual D-Pad Controller (Tactile Brass Buttons style) */
