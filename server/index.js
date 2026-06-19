@@ -7,6 +7,8 @@ import { Server } from 'socket.io';
 const PORT = Number(process.env.PORT || 3000);
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || '*';
 const CARO_BOARD_SIZE = 12;
+// How long a disconnected player's seat is held open for a reconnect.
+const RECONNECT_GRACE_MS = 20000;
 
 const rooms = new Map();
 
@@ -133,7 +135,7 @@ const createInitialState = (gameId) => {
 
 const serializePlayers = (room) => Array.from(room.players.values()).map((player) => ({
   role: player.role,
-  connected: true,
+  connected: player.connected !== false,
 }));
 
 const emitRoomState = (room) => {
@@ -357,13 +359,13 @@ const makeMove = (room, socketId, move) => {
 };
 
 io.on('connection', (socket) => {
-  socket.on('createRoom', ({ gameId } = {}, callback) => {
+  socket.on('createRoom', ({ gameId, clientId } = {}, callback) => {
     try {
       const code = createRoomCode();
       const room = {
         code,
         gameId,
-        players: new Map([[socket.id, { role: 'P1' }]]),
+        players: new Map([[socket.id, { role: 'P1', clientId, connected: true }]]),
         state: createInitialState(gameId),
       };
 
@@ -376,7 +378,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('joinRoom', ({ roomCode } = {}, callback) => {
+  socket.on('joinRoom', ({ roomCode, clientId } = {}, callback) => {
     const code = roomCode?.toString().trim();
     const room = rooms.get(code);
 
@@ -392,9 +394,42 @@ io.on('connection', (socket) => {
     }
 
     removePlayer(socket.id);
-    room.players.set(socket.id, { role });
+    room.players.set(socket.id, { role, clientId, connected: true });
     socket.join(room.code);
     callback?.({ ok: true, roomCode: room.code, gameId: room.gameId, playerRole: role, players: serializePlayers(room), state: room.state });
+    emitRoomState(room);
+  });
+
+  // Re-seat a returning socket (e.g. after a network blip / transport upgrade)
+  // into its previous room. The slot is matched by the persistent clientId so a
+  // reconnect reclaims the same role instead of being seen as a stranger.
+  socket.on('rejoinRoom', ({ roomCode, clientId } = {}, callback) => {
+    const code = roomCode?.toString().trim();
+    const room = rooms.get(code);
+    if (!room || !clientId) {
+      callback?.({ ok: false, error: 'Phòng không còn tồn tại.' });
+      return;
+    }
+
+    const existing = Array.from(room.players.entries()).find(([, p]) => p.clientId === clientId);
+    if (existing) {
+      const [oldSocketId, player] = existing;
+      if (player.disconnectTimer) clearTimeout(player.disconnectTimer);
+      room.players.delete(oldSocketId);
+      room.players.set(socket.id, { ...player, connected: true, disconnectTimer: null });
+    } else {
+      const role = getNextRole(room);
+      if (!role) {
+        callback?.({ ok: false, error: 'Phòng đã đủ 2 người.' });
+        return;
+      }
+      removePlayer(socket.id);
+      room.players.set(socket.id, { role, clientId, connected: true });
+    }
+
+    socket.join(room.code);
+    const me = room.players.get(socket.id);
+    callback?.({ ok: true, roomCode: room.code, gameId: room.gameId, playerRole: me.role, players: serializePlayers(room), state: room.state });
     emitRoomState(room);
   });
 
@@ -427,7 +462,27 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    removePlayer(socket.id);
+    // Keep the slot reserved for a short grace period so a brief network blip
+    // (or a proxy closing an idle socket) does not drop the player or tear down
+    // the room before they reconnect and rejoinRoom.
+    const room = findPlayerRoom(socket.id);
+    if (!room) return;
+    const player = room.players.get(socket.id);
+    if (!player) return;
+
+    player.connected = false;
+    emitRoomState(room);
+
+    player.disconnectTimer = setTimeout(() => {
+      const current = room.players.get(socket.id);
+      if (!current || current.connected) return; // reconnected → keep
+      room.players.delete(socket.id);
+      if (room.players.size === 0) {
+        rooms.delete(room.code);
+      } else {
+        emitRoomState(room);
+      }
+    }, RECONNECT_GRACE_MS);
   });
 });
 

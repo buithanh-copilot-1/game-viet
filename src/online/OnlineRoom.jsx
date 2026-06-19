@@ -8,6 +8,19 @@ const GAME_LABELS = {
   'o-an-quan': 'Ô Ăn Quan',
 };
 
+// A stable per-device id so a reconnecting socket can reclaim its seat in the
+// room instead of being treated as a brand new (third) player.
+const getClientId = () => {
+  let id = localStorage.getItem('online_client_id');
+  if (!id) {
+    id = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `c-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem('online_client_id', id);
+  }
+  return id;
+};
+
 const getOnlineServerUrl = () => {
   if (import.meta.env.VITE_ONLINE_SERVER_URL) {
     return import.meta.env.VITE_ONLINE_SERVER_URL;
@@ -26,6 +39,7 @@ export default function OnlineRoom({ gameId, onCancel, onReady }) {
   const [status, setStatus] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const serverUrl = getOnlineServerUrl();
+  const clientId = getClientId();
 
   const connectSocket = () => io(serverUrl, {
     transports: ['websocket', 'polling'],
@@ -48,6 +62,12 @@ export default function OnlineRoom({ gameId, onCancel, onReady }) {
     }
 
     playSound('click');
+    // If the socket later drops and Socket.IO reconnects, re-seat into the same
+    // room automatically so neither side ends up stuck/desynced. This 'connect'
+    // handler only fires on subsequent (re)connections, not the first one.
+    socket.on('connect', () => {
+      socket.emit('rejoinRoom', { roomCode: response.roomCode, clientId }, () => {});
+    });
     onReady({
       socket,
       serverUrl,
@@ -64,7 +84,7 @@ export default function OnlineRoom({ gameId, onCancel, onReady }) {
     setStatus('Đang tạo phòng...');
     const socket = connectSocket();
     handleSocketError(socket);
-    socket.emit('createRoom', { gameId }, (response) => enterRoom(socket, response));
+    socket.emit('createRoom', { gameId, clientId }, (response) => enterRoom(socket, response));
   };
 
   const joinRoom = () => {
@@ -78,7 +98,7 @@ export default function OnlineRoom({ gameId, onCancel, onReady }) {
     setStatus('Đang vào phòng...');
     const socket = connectSocket();
     handleSocketError(socket);
-    socket.emit('joinRoom', { roomCode: normalizedCode }, (response) => enterRoom(socket, response));
+    socket.emit('joinRoom', { roomCode: normalizedCode, clientId }, (response) => enterRoom(socket, response));
   };
 
   return (
