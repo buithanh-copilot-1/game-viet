@@ -1773,17 +1773,22 @@ body {
   display: inline-block;
   /* perspective must be on the PARENT, not on board itself */
   perspective: 900px;
+  -webkit-perspective: 900px;
   perspective-origin: 50% 30%;
+  -webkit-perspective-origin: 50% 30%;
   /* Scale the whole isometric board to fit narrow screens. The widest level
      projects to ~426px; --matrix-scale is dialled down via media queries. */
   transform: scale(var(--matrix-scale, 1));
+  -webkit-transform: scale(var(--matrix-scale, 1));
   transform-origin: center center;
 }
 
 .matrix-board-3d {
   position: relative;
   transform: rotateX(50deg) rotateZ(-45deg);
+  -webkit-transform: rotateX(50deg) rotateZ(-45deg);
   transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
 }
 
 /* ---- Real 3D stone slab: positioning wrapper holding a top face + side walls ---- */
@@ -1792,6 +1797,7 @@ body {
   width: 40px;
   height: 40px;
   transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
 }
 
 /* Top face — fills the whole cell so neighbours form one continuous stone
@@ -1815,6 +1821,7 @@ body {
   box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.32);
   box-sizing: border-box;
   transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
 }
 
 /* Outer side walls — only rendered on the slab's boundary, so the whole
@@ -1950,6 +1957,7 @@ body {
   width: 40px;
   height: 40px;
   transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
   /* Position/pose commit instantly at the end of a roll — the visual tip-over
      is animated on the inner .cube-pivot layer instead. */
 }
@@ -1966,15 +1974,24 @@ body {
   transition: transform 0.5s ease-in, opacity 0.5s ease-in;
 }
 
-/* Ground shadow — flat diamond on the tile surface */
+/* Ground shadow — a soft blob that lies flat on the tile surface.
+   IMPORTANT: do NOT use `filter: blur()` here. A CSS filter forces the element
+   into its own flattened 2D rendering context, which breaks the preserve-3d
+   chain so the shadow no longer lies on the Z=0 plane (it renders detached /
+   in front of the brick). The soft edge is baked into a radial-gradient
+   instead, keeping the shadow correctly projected with the board. */
 .cube-shadow {
   position: absolute;
-  background: rgba(0, 0, 0, 0.65);
-  filter: blur(5px);
-  border-radius: 6px;
+  background: radial-gradient(ellipse at 50% 50%,
+    rgba(0, 0, 0, 0.6) 0%,
+    rgba(0, 0, 0, 0.4) 42%,
+    rgba(0, 0, 0, 0.16) 66%,
+    rgba(0, 0, 0, 0) 80%);
+  border-radius: 50%;
   pointer-events: none;
-  /* Z sits exactly on the tile top face (Z = 0 plane) */
+  /* Z sits exactly on the tile top face (Z = 0 plane); set inline. */
   transform: translateZ(0px);
+  transition: width 0.2s ease, height 0.2s ease;
 }
 
 /* ========================================================
@@ -2005,11 +2022,16 @@ body {
 .cube-3d {
   position: absolute;
   transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
 }
 
 /* Edge-pivot roll animations — the brick tips 90° over its contact edge in the
    direction of travel. transform-origin (set inline) is the bottom edge. */
-.cube-pivot { transform: rotate3d(0, 0, 1, 0deg); }
+.cube-pivot {
+  transform: rotate3d(0, 0, 1, 0deg);
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+}
 @keyframes roll-right {
   from { transform: rotate3d(0, 1, 0, 0deg); }
   to   { transform: rotate3d(0, 1, 0, 90deg); }
@@ -2056,7 +2078,12 @@ body {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  backface-visibility: visible;
+  /* The brick is a solid opaque cuboid, so faces pointing away from the camera
+     must NOT paint. Leaving them visible makes far faces z-fight with near
+     faces during the roll — the main cause of the flicker / "unstable cube" on
+     mobile GPUs. Hiding backfaces removes that overdraw entirely. */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 /* Inset wood panel groove with a subtle gold motif frame */
 .cube-face::after {

@@ -659,8 +659,10 @@ export default function MaTran({ onBack }) {
                       transformStyle: 'preserve-3d',
                       transformOrigin: pivotOrigin,
                       willChange: 'transform',
+                      backfaceVisibility: 'hidden',
+                      WebkitBackfaceVisibility: 'hidden',
                       animation: roll
-                        ? `${pivotAnimation} 0.22s cubic-bezier(0.34, 0, 0.32, 1) forwards`
+                        ? `${pivotAnimation} 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards`
                         : 'none'
                     }}
                   >
