@@ -764,6 +764,80 @@ body {
   animation: bounce-subtle 2s infinite ease-in-out;
 }
 
+.win-loss-text-overlay.is-win {
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.55);
+  background: rgba(6, 24, 14, 0.92);
+}
+
+.win-loss-text-overlay.is-lose {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(28, 8, 8, 0.92);
+}
+
+/* Wallet / bet summary cards */
+.bc-wallet-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.bc-stat {
+  flex: 1;
+  min-width: 130px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(10, 5, 5, 0.55);
+  border: 1px solid rgba(207, 161, 43, 0.18);
+}
+
+.bc-stat-bet {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.bc-stat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(207, 161, 43, 0.18);
+  color: var(--color-gold-bright);
+}
+
+.bc-stat-label {
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+  margin-bottom: 1px;
+}
+
+.bc-stat-value {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+  line-height: 1.1;
+}
+
+.bc-bet-value {
+  color: #ff6b6b;
+}
+
+.bc-refill-btn {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Chip selection bar */
 .chip-bar-panel {
   display: flex;
@@ -776,36 +850,42 @@ body {
 .chip-bar-label {
   font-size: 11px;
   color: var(--color-text-secondary);
+  flex-shrink: 0;
 }
 
 .chip-container {
   display: flex;
-  gap: 8px;
+  gap: 10px;
 }
 
 .chip-button {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   font-family: var(--font-sans);
   font-weight: 800;
-  font-size: 11px;
+  font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid rgba(207, 161, 43, 0.4);
-  background: var(--color-wood-dark);
+  border: 2px dashed rgba(207, 161, 43, 0.55);
+  background: radial-gradient(circle at 50% 35%, #4a2a16 0%, var(--color-wood-dark) 75%);
   color: var(--color-text-secondary);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5), inset 0 0 0 3px rgba(0, 0, 0, 0.25);
   transition: all 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
 }
 
+.chip-button:hover {
+  border-color: rgba(207, 161, 43, 0.85);
+  color: var(--color-text-primary);
+}
+
 .chip-button.selected {
-  background: var(--color-gold);
+  background: radial-gradient(circle at 50% 35%, #ffe08a 0%, var(--color-gold) 75%);
   border-color: #fff;
-  color: #0a0505;
-  transform: scale(1.18);
-  box-shadow: 0 4px 12px rgba(207, 161, 43, 0.5);
+  color: #4a2a06;
+  transform: scale(1.16) translateY(-2px);
+  box-shadow: 0 6px 14px rgba(207, 161, 43, 0.5), inset 0 0 0 3px rgba(255, 255, 255, 0.35);
 }
 
 /* Betting Board Grid */
@@ -860,23 +940,70 @@ body {
 }
 
 .cell-icon-holder {
-  width: 52px;
-  height: 52px;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  padding: 11px;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: radial-gradient(circle at 50% 35%,
+    color-mix(in srgb, var(--animal-color, #cfa12b) 32%, transparent),
+    color-mix(in srgb, var(--animal-color, #cfa12b) 8%, transparent));
+  border: 1.5px solid color-mix(in srgb, var(--animal-color, #cfa12b) 55%, transparent);
+  box-shadow: inset 0 1px 6px rgba(0, 0, 0, 0.45);
   transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.bau-cua-cell:hover .cell-icon-holder {
-  transform: scale(1.1);
+.bau-cua-cell:hover:not(:disabled) .cell-icon-holder {
+  transform: scale(1.08);
 }
 
 .cell-label {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   color: var(--color-text-secondary);
-  margin-top: 4px;
+  margin-top: 7px;
+  letter-spacing: 0.5px;
+}
+
+/* Winning animals are highlighted after the bowl opens */
+.bau-cua-cell.result-win {
+  border-color: var(--color-gold-bright);
+  background: rgba(207, 161, 43, 0.14);
+  box-shadow: 0 0 16px rgba(207, 161, 43, 0.35);
+  animation: bc-result-pop 0.45s ease-out;
+}
+
+.bau-cua-cell.result-win .cell-icon-holder {
+  transform: scale(1.1);
+  border-color: var(--color-gold-bright);
+}
+
+.bau-cua-cell.result-win .cell-label {
+  color: var(--color-gold-bright);
+}
+
+@keyframes bc-result-pop {
+  0% { transform: scale(0.9); }
+  55% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.result-badge {
+  position: absolute;
+  top: -7px;
+  left: -7px;
+  background: linear-gradient(135deg, var(--color-gold-bright), var(--color-gold));
+  color: #1a0d08;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1.5px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  z-index: 6;
+  animation: bet-bounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
 /* History */

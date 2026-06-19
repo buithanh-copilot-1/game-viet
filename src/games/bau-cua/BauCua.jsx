@@ -31,7 +31,8 @@ export default function BauCua({ onBack }) {
     return saved ? JSON.parse(saved) : [];
   });
   const [showRules, setShowRules] = useState(false);
-  const [lastWinText, setLastWinText] = useState(null);
+  const [outcome, setOutcome] = useState(null);
+  const [lastResult, setLastResult] = useState(null);
 
   useEffect(() => {
     localStorage.setItem('bau_cua_coins', coins.toString());
@@ -54,6 +55,9 @@ export default function BauCua({ onBack }) {
     }
 
     playSound('click');
+    // Starting a fresh round of betting clears the previous reveal.
+    if (lastResult) setLastResult(null);
+    if (outcome) setOutcome(null);
     setBets(prev => ({ ...prev, [id]: prev[id] + selectedChip }));
     setCoins(prev => prev - selectedChip);
   };
@@ -76,7 +80,8 @@ export default function BauCua({ onBack }) {
     setRolling(true);
     setBowlClosed(true);
     setHasShaken(true);
-    setLastWinText(null);
+    setOutcome(null);
+    setLastResult(null);
 
     // Play rolling loop sound synthetically
     let shakeCount = 0;
@@ -123,21 +128,26 @@ export default function BauCua({ onBack }) {
     });
 
     const netResult = wonAmount + refundAmount;
-    if (netResult > 0) {
-      setCoins(prev => prev + netResult);
-      setLastWinText(`Chúc mừng! Bạn thắng +${netResult} xu`);
-      playSound('win');
-      confetti({
-        particleCount: 50,
-        spread: 40,
-        origin: { y: 0.8 }
-      });
-    } else {
-      if (totalBetAmount > 0) {
-        setLastWinText(`Rất tiếc! Bạn thua -${totalBetAmount} xu`);
+    if (netResult > 0) setCoins(prev => prev + netResult);
+
+    // Net change for the player = payout received minus the stake already taken.
+    const profit = netResult - totalBetAmount;
+    if (totalBetAmount > 0) {
+      if (profit > 0) {
+        setOutcome({ won: true, text: `Chúc mừng! Bạn thắng +${profit.toLocaleString()} xu` });
+        playSound('win');
+        confetti({ particleCount: 50, spread: 40, origin: { y: 0.8 } });
+      } else if (profit === 0) {
+        setOutcome({ won: true, text: 'Hòa vốn — bạn nhận lại tiền cược.' });
+        playSound('win');
+      } else {
+        setOutcome({ won: false, text: `Rất tiếc! Bạn thua ${profit.toLocaleString()} xu` });
         playSound('lose');
       }
     }
+
+    // Remember the revealed dice so winning animals stay highlighted on the board
+    setLastResult(dice);
 
     // Add to history
     setHistory(prev => [dice, ...prev.slice(0, 9)]);
@@ -169,24 +179,26 @@ export default function BauCua({ onBack }) {
       <div className="bau-cua-main-area">
         
         {/* Wallet & Bet summary */}
-        <div className="widget-panel dashboard-grid">
-          <div className="score-display-row">
-            <div className="wallet-box">
-              <Coins className="text-yellow-500" size={16} />
-              <span>{coins.toLocaleString()} xu</span>
+        <div className="widget-panel bc-wallet-panel">
+          <div className="bc-stat bc-stat-coins">
+            <div className="bc-stat-icon"><Coins size={18} /></div>
+            <div className="bc-stat-text">
+              <div className="bc-stat-label">Số xu của bạn</div>
+              <div className="bc-stat-value">{coins.toLocaleString()}</div>
             </div>
-            
-            <div className="stake-box">
-              Tổng cược: <strong style={{ color: '#ef4444' }}>{totalBetAmount} xu</strong>
+          </div>
+          <div className="bc-stat bc-stat-bet">
+            <div className="bc-stat-text">
+              <div className="bc-stat-label">Tổng đang cược</div>
+              <div className="bc-stat-value bc-bet-value">{totalBetAmount.toLocaleString()}</div>
             </div>
           </div>
           {coins === 0 && (
-            <button 
-              onClick={handleResetCoins} 
-              className="btn-secondary-action" 
-              style={{ marginTop: '4px', width: 'fit-content', alignSelf: 'center' }}
+            <button
+              onClick={handleResetCoins}
+              className="btn-secondary-action bc-refill-btn"
             >
-              <RotateCcw size={10} style={{ marginRight: '4px', display: 'inline' }} /> Hồi xu (1000)
+              <RotateCcw size={12} style={{ marginRight: '4px', display: 'inline' }} /> Hồi xu (1000)
             </button>
           )}
         </div>
@@ -244,9 +256,9 @@ export default function BauCua({ onBack }) {
           </div>
 
           {/* Win/Loss message popup */}
-          {lastWinText && (
-            <div className="win-loss-text-overlay">
-              {lastWinText}
+          {outcome && (
+            <div className={`win-loss-text-overlay ${outcome.won ? 'is-win' : 'is-lose'}`}>
+              {outcome.text}
             </div>
           )}
         </div>
@@ -276,12 +288,15 @@ export default function BauCua({ onBack }) {
         <div className="bau-cua-grid">
           {ANIMALS.map(animal => {
             const hasBet = bets[animal.id] > 0;
+            const resultCount = lastResult ? lastResult.filter(d => d === animal.id).length : 0;
+            const isWinningResult = resultCount > 0;
             return (
               <button
                 key={animal.id}
                 onClick={() => placeBet(animal.id)}
                 disabled={rolling || (bowlClosed && hasShaken)}
-                className={`bau-cua-cell ${hasBet ? 'active-bet' : ''}`}
+                className={`bau-cua-cell ${hasBet ? 'active-bet' : ''} ${isWinningResult ? 'result-win' : ''}`}
+                style={{ '--animal-color': animal.color }}
               >
                 {/* Bet quantity display */}
                 {hasBet && (
@@ -289,8 +304,13 @@ export default function BauCua({ onBack }) {
                     {bets[animal.id]}
                   </div>
                 )}
-                
-                {/* Animal Icon */}
+
+                {/* Result multiplier after the bowl opens */}
+                {isWinningResult && (
+                  <div className="result-badge">x{resultCount}</div>
+                )}
+
+                {/* Animal Icon on a coloured medallion */}
                 <div className="cell-icon-holder">
                   <svg viewBox="0 0 48 48" style={{ width: '100%', height: '100%' }}>
                     <path d={animal.svgPath} fill={animal.color} />
