@@ -7,7 +7,6 @@ dist-ssr
 .DS_Store
 .vscode
 .idea
-src
-public
-index.html
 *.local
+Dockerfile
+.dockerignore

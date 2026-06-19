@@ -1,22 +1,35 @@
-# Dockerfile for the Game Viet realtime (Socket.IO) server
-FROM node:20-alpine
+# Multi-stage Dockerfile: build the frontend, then serve it + the realtime
+# Socket.IO server from a single Node process / single port.
 
-# Create app directory
+# --- Build stage: compile the Vite/React frontend ---
+FROM node:20-alpine AS build
 WORKDIR /app
 
-# Install production dependencies only (the server needs socket.io at runtime)
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+
+# Serve assets from the site root and let the client connect to the realtime
+# server on the same origin (no separate VITE_ONLINE_SERVER_URL needed).
+ENV VITE_BASE_PATH=/
+RUN npm run build
+
+# --- Runtime stage: server + built frontend, production deps only ---
+FROM node:20-alpine AS runtime
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=3000
+
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-# Copy the server source
 COPY server ./server
+COPY --from=build /app/dist ./dist
 
-# The server listens on PORT (default 3000)
-ENV NODE_ENV=production
-ENV PORT=3000
 EXPOSE 3000
 
-# Basic healthcheck against the /health endpoint
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
