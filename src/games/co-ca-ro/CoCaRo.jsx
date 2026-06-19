@@ -83,6 +83,17 @@ export default function CoCaRo({ onBack, onlineSession }) {
   const isWaitingOnline = isOnline && onlineMeta.players.length < 2;
   const isMyOnlineTurn = isOnline && onlineMeta.playerRole === onlineCurrentRole;
 
+  // Friendly names for the two sides so each player card is unambiguous.
+  const playerLabels = (() => {
+    if (isOnline) {
+      const iAmX = onlineMeta.playerRole === 'P1';
+      return { x: iAmX ? 'Bạn' : 'Đối thủ', o: iAmX ? 'Đối thủ' : 'Bạn' };
+    }
+    if (gameMode === 'pve') return { x: 'Bạn', o: 'Máy' };
+    return { x: 'Người 1', o: 'Người 2' };
+  })();
+  const turnActive = !winner && !isWaitingOnline;
+
   const handleCellClick = (row, col) => {
     if (board[row][col] || winner) return;
 
@@ -278,45 +289,52 @@ export default function CoCaRo({ onBack, onlineSession }) {
       </div>
 
       <div className="bau-cua-main-area" style={{ flex: 1, justifyContent: 'space-between' }}>
-        <div className="widget-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
-          {isOnline ? (
-            <div className="online-game-badge">
-              <Wifi size={13} /> Phòng {onlineMeta.roomCode} - {onlineMeta.playerRole === 'P1' ? 'Bạn là X' : 'Bạn là O'}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: '6px', background: '#0a0505', padding: '4px', borderRadius: '8px', border: '1px solid rgba(207, 161, 43, 0.15)' }}>
-              <button
-                onClick={() => { playSound('click'); setGameMode('pve'); resetGame(); }}
-                className="btn-secondary-action"
-                style={{
-                  background: gameMode === 'pve' ? 'rgba(207, 161, 43, 0.25)' : 'transparent',
-                  borderColor: gameMode === 'pve' ? 'var(--color-gold)' : 'transparent',
-                  color: gameMode === 'pve' ? 'var(--color-gold-bright)' : 'var(--color-text-secondary)'
-                }}
-              >
-                <Cpu size={12} style={{ display: 'inline', marginRight: '4px', transform: 'translateY(-1px)' }} /> Đấu Máy
-              </button>
-              <button
-                onClick={() => { playSound('click'); setGameMode('pvp'); resetGame(); }}
-                className="btn-secondary-action"
-                style={{
-                  background: gameMode === 'pvp' ? 'rgba(207, 161, 43, 0.25)' : 'transparent',
-                  borderColor: gameMode === 'pvp' ? 'var(--color-gold)' : 'transparent',
-                  color: gameMode === 'pvp' ? 'var(--color-gold-bright)' : 'var(--color-text-secondary)'
-                }}
-              >
-                <Users size={12} style={{ display: 'inline', marginRight: '4px', transform: 'translateY(-1px)' }} /> 2 Người
-              </button>
-            </div>
-          )}
+        <div className="widget-panel caro-status-panel">
+          <div className="caro-control-row">
+            {isOnline ? (
+              <div className="online-game-badge">
+                <Wifi size={13} /> Phòng {onlineMeta.roomCode} · {onlineMeta.playerRole === 'P1' ? 'Bạn là X' : 'Bạn là O'}
+              </div>
+            ) : (
+              <div className="seg-switch">
+                <button
+                  onClick={() => { playSound('click'); setGameMode('pve'); resetGame(); }}
+                  className={`seg-btn ${gameMode === 'pve' ? 'active' : ''}`}
+                >
+                  <Cpu size={12} /> Đấu Máy
+                </button>
+                <button
+                  onClick={() => { playSound('click'); setGameMode('pvp'); resetGame(); }}
+                  className={`seg-btn ${gameMode === 'pvp' ? 'active' : ''}`}
+                >
+                  <Users size={12} /> 2 Người
+                </button>
+              </div>
+            )}
+          </div>
 
-          <div style={{ fontSize: '13px', fontWeight: '600', textAlign: 'right' }}>
+          <div className="caro-players">
+            <div className={`caro-player-card ${turnActive && isXNext ? 'active' : ''}`}>
+              <span className="caro-player-mark x-piece">X</span>
+              <span className="caro-player-name">{playerLabels.x}</span>
+            </div>
+            <span className="caro-vs">VS</span>
+            <div className={`caro-player-card ${turnActive && !isXNext ? 'active' : ''}`}>
+              <span className="caro-player-mark o-piece">O</span>
+              <span className="caro-player-name">{playerLabels.o}</span>
+            </div>
+          </div>
+
+          <div className={`caro-status-line ${winner ? 'is-over' : ''}`}>
             {renderStatus()}
           </div>
         </div>
 
         <div className="caro-grid-container">
-          <div className="caro-board" style={{ gridTemplateColumns: `repeat(${BOARD_SIZE}, minmax(0, 1fr))` }}>
+          <div
+            className={`caro-board ${turnActive ? (isXNext ? 'next-x' : 'next-o') : ''}`}
+            style={{ gridTemplateColumns: `repeat(${BOARD_SIZE}, minmax(0, 1fr))` }}
+          >
             {board.map((row, rIdx) =>
               row.map((cell, cIdx) => {
                 const isLast = lastMove && lastMove.row === rIdx && lastMove.col === cIdx;
@@ -330,6 +348,7 @@ export default function CoCaRo({ onBack, onlineSession }) {
                     className={`caro-cell ${isWinning ? 'winning-cell' : ''}`}
                   >
                     {!cell && <span className="caro-cell-dot" />}
+                    {!cell && <span className="caro-ghost" />}
                     {cell === 'X' && <span className="caro-piece x-piece">X</span>}
                     {cell === 'O' && <span className="caro-piece o-piece">O</span>}
                     {isLast && !isWinning && <span className="caro-last-move-border" />}

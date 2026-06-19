@@ -1050,6 +1050,110 @@ body {
 /* ========================================================
    GAME 2: CỜ CA RÔ STYLE
    ======================================================== */
+/* Reusable segmented mode switch (shared with other games) */
+.seg-switch {
+  display: flex;
+  gap: 4px;
+  background: #0a0505;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(207, 161, 43, 0.15);
+}
+
+.seg-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 7px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+}
+
+.seg-btn.active {
+  background: rgba(207, 161, 43, 0.22);
+  border-color: var(--color-gold);
+  color: var(--color-gold-bright);
+}
+
+/* Status panel: mode switch, X-vs-O player cards, status line */
+.caro-status-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.caro-control-row {
+  display: flex;
+  justify-content: center;
+}
+
+.caro-players {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.caro-player-card {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(10, 5, 5, 0.55);
+  border: 1.5px solid rgba(207, 161, 43, 0.14);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.caro-player-card.active {
+  border-color: rgba(207, 161, 43, 0.55);
+  background: rgba(124, 18, 18, 0.22);
+  box-shadow: 0 0 14px rgba(207, 161, 43, 0.15);
+  transform: translateY(-1px);
+}
+
+.caro-player-mark {
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.caro-player-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.caro-player-card.active .caro-player-name {
+  color: var(--color-text-primary);
+}
+
+.caro-vs {
+  font-family: var(--font-serif);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.caro-status-line {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  min-height: 18px;
+}
+
+.caro-status-line.is-over {
+  font-size: 15px;
+}
+
 .caro-grid-container {
   display: flex;
   justify-content: center;
@@ -1084,6 +1188,7 @@ body {
 
 .caro-cell:hover:not(:disabled) {
   background: #60362c;
+  cursor: pointer;
 }
 
 .caro-cell-dot {
@@ -1091,6 +1196,31 @@ body {
   height: 4px;
   border-radius: 50%;
   background: rgba(10,5,5,0.25);
+}
+
+/* Ghost preview of the piece you'd place, shown on hover during your turn */
+.caro-ghost {
+  position: absolute;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.caro-board.next-x .caro-cell:hover:not(:disabled) .caro-ghost::before {
+  content: 'X';
+  color: #ff5e5e;
+}
+
+.caro-board.next-o .caro-cell:hover:not(:disabled) .caro-ghost::before {
+  content: 'O';
+  color: #4dc3ff;
+}
+
+.caro-cell:hover:not(:disabled) .caro-ghost {
+  opacity: 0.4;
 }
 
 .caro-piece {
@@ -1102,31 +1232,45 @@ body {
 
 .caro-piece.x-piece {
   color: #ff5e5e;
-  text-shadow: 0 0 5px rgba(255, 94, 94, 0.5);
+  text-shadow: 0 0 6px rgba(255, 94, 94, 0.6);
 }
 
 .caro-piece.o-piece {
   color: #4dc3ff;
-  text-shadow: 0 0 5px rgba(77, 195, 255, 0.5);
+  text-shadow: 0 0 6px rgba(77, 195, 255, 0.6);
 }
 
 .caro-cell.winning-cell {
-  background: linear-gradient(135deg, var(--color-gold) 0%, var(--color-gold-dim) 100%);
-  animation: pulse-winning-cell 1.2s infinite ease-in-out;
+  background: linear-gradient(135deg, var(--color-gold-bright) 0%, var(--color-gold-dim) 100%);
+  animation: caro-win-flash 0.9s infinite ease-in-out;
   z-index: 10;
+  box-shadow: 0 0 12px rgba(246, 209, 102, 0.7);
 }
 
 .caro-cell.winning-cell .caro-piece {
   color: #0a0505;
   text-shadow: none;
+  animation: caro-win-pop 0.9s infinite ease-in-out;
 }
 
+@keyframes caro-win-flash {
+  0%, 100% { box-shadow: 0 0 8px rgba(246, 209, 102, 0.5); filter: brightness(1); }
+  50% { box-shadow: 0 0 20px rgba(246, 209, 102, 0.95); filter: brightness(1.18); }
+}
+
+@keyframes caro-win-pop {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.22); }
+}
+
+/* Last move: glowing pulsing ring plus a corner marker */
 .caro-last-move-border {
   position: absolute;
   inset: 0;
   border: 1.5px solid var(--color-gold-bright);
   border-radius: 3px;
   pointer-events: none;
+  box-shadow: 0 0 8px rgba(246, 209, 102, 0.5), inset 0 0 6px rgba(246, 209, 102, 0.3);
   animation: pulse-gold 1.5s infinite;
 }
 
