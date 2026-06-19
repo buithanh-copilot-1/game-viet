@@ -2050,9 +2050,8 @@ body {
   .app-container { padding: 10px; }
   .matrix-3d-scene { padding: 14px 4px; }
   :root { --matrix-scale: 0.74; }
-  /* Compact D-Pad so controls stay above the fold on short phones */
-  .dpad-container { width: 124px; height: 124px; gap: 8px; }
-  .dpad-btn { width: 38px; height: 38px; }
+  /* Slightly smaller D-Pad on short phones, but still big edge-to-edge keys */
+  .dpad-cross { width: 168px; height: 168px; }
 }
 
 @media (max-width: 340px) {
@@ -2110,45 +2109,76 @@ body {
   -webkit-backface-visibility: hidden;
 }
 
-/* Virtual D-Pad Controller (Tactile Brass Buttons style) */
+/* Virtual D-Pad — a connected cross of large, gap-free touch targets so a
+   thumb can hit any direction without aiming at small separate circles. */
 .dpad-panel {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-top: 10px;
 }
 
-.dpad-container {
+.dpad-hint {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  opacity: 0.75;
+  text-align: center;
+}
+
+.dpad-cross {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  gap: 10px;
-  width: 140px;
-  height: 140px;
+  width: 192px;
+  height: 192px;
+  gap: 0;
 }
 
-.dpad-btn {
-  background: radial-gradient(circle, var(--color-wood-light) 0%, var(--color-wood-dark) 100%);
-  border: 2px solid var(--color-gold);
-  color: var(--color-gold-bright);
-  border-radius: 50%;
-  width: 42px;
-  height: 42px;
+/* Place the four arrows in a plus shape; the four corners stay empty. */
+.dpad-up    { grid-column: 2; grid-row: 1; border-radius: 16px 16px 0 0; }
+.dpad-left  { grid-column: 1; grid-row: 2; border-radius: 16px 0 0 16px; }
+.dpad-hub   { grid-column: 2; grid-row: 2; }
+.dpad-right { grid-column: 3; grid-row: 2; border-radius: 0 16px 16px 0; }
+.dpad-down  { grid-column: 2; grid-row: 3; border-radius: 0 0 16px 16px; }
+
+.dpad-key {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  font-weight: 800;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6), inset 0 2px 3px rgba(255,255,255,0.1);
-  transition: all 0.15s cubic-bezier(0.25, 0.8, 0.25, 1);
+  /* Each key fills its whole cell → big edge-to-edge target, no dead gaps. */
+  width: 100%;
+  height: 100%;
+  color: var(--color-gold-bright);
+  background: linear-gradient(160deg, #5a3526 0%, #3a2016 100%);
+  border: 1.5px solid rgba(207, 161, 43, 0.55);
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.08);
+  /* Faster, more reliable taps on touch devices. */
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: background 0.12s ease, transform 0.08s ease;
 }
 
-.dpad-btn:active {
-  background: radial-gradient(circle, var(--color-wood-mid) 0%, var(--color-wood-dark) 100%);
-  border-color: var(--color-gold-bright);
-  transform: scale(0.9) translateY(2px);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.7);
+.dpad-key:active {
+  background: linear-gradient(160deg, var(--color-gold) 0%, var(--color-gold-dim) 100%);
+  color: #1a0d08;
+  transform: scale(0.94);
+}
+
+/* Centre hub ties the four arms together visually. */
+.dpad-hub {
+  background: radial-gradient(circle, #4a2c1e 0%, #2a1610 100%);
+  border: 1.5px solid rgba(207, 161, 43, 0.3);
+  position: relative;
+}
+
+.dpad-hub::after {
+  content: '';
+  position: absolute;
+  inset: 30%;
+  border-radius: 50%;
+  border: 1.5px solid rgba(207, 161, 43, 0.4);
 }
 
 /* Modals */

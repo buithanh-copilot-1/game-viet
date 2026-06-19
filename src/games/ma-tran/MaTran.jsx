@@ -757,19 +757,23 @@ export default function MaTran({ onBack }) {
 
           {/* D-Pad controls for mobile touch devices */}
           <div className="dpad-panel">
-            <span className="copy-box" style={{ fontSize: '10px', opacity: 0.6 }}>
-              Chạm phím hoặc dùng bàn phím (W, A, S, D / Phím mũi tên)
+            <span className="dpad-hint">
+              Chạm phím mũi tên hoặc dùng bàn phím (W A S D / Phím mũi tên)
             </span>
-            <div className="dpad-container">
-              <div />
-              <button onClick={() => move('up')} className="dpad-btn"><ChevronUp size={20} /></button>
-              <div />
-              <button onClick={() => move('left')} className="dpad-btn"><ChevronLeft size={20} /></button>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 'bold' }}>DPAD</div>
-              <button onClick={() => move('right')} className="dpad-btn"><ChevronRight size={20} /></button>
-              <div />
-              <button onClick={() => move('down')} className="dpad-btn"><ChevronDown size={20} /></button>
-              <div />
+            <div className="dpad-cross">
+              <button onClick={() => move('up')} className="dpad-key dpad-up" aria-label="Lên">
+                <ChevronUp size={28} />
+              </button>
+              <button onClick={() => move('left')} className="dpad-key dpad-left" aria-label="Trái">
+                <ChevronLeft size={28} />
+              </button>
+              <div className="dpad-hub" aria-hidden="true" />
+              <button onClick={() => move('right')} className="dpad-key dpad-right" aria-label="Phải">
+                <ChevronRight size={28} />
+              </button>
+              <button onClick={() => move('down')} className="dpad-key dpad-down" aria-label="Xuống">
+                <ChevronDown size={28} />
+              </button>
             </div>
           </div>
 
