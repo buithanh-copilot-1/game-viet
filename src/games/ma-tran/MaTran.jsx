@@ -150,6 +150,84 @@ const LEVEL_DATA = [
     switches: [
       { x: 2, y: 2, bridges: [{ x: 4, y: 3 }, { x: 4, y: 4 }, { x: 4, y: 5 }] }
     ]
+  },
+  // Level 9: Hành lang chữ U (long wrap-around corridor)
+  {
+    name: "Hành lang chữ U",
+    hint: "Hành lang vòng hình chữ U bao quanh một hố lớn ở giữa. Đi vòng theo viền tới đích.",
+    width: 11,
+    height: 6,
+    tiles: [
+      [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1],
+      [1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1],
+      [1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]
+    ],
+    startPos: { x: 0, y: 0 },
+    goalPos: { x: 10, y: 4 }
+  },
+  // Level 10: Cầu công tắc xa (switch far from its bridge)
+  {
+    name: "Cầu công tắc xa",
+    hint: "Nút mở cầu nằm xa cây cầu. Đè nút trước, rồi quay lại vượt cầu sang khu bên phải.",
+    width: 11,
+    height: 7,
+    tiles: [
+      [2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+      [1, 4, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+      [1, 1, 1, 6, 6, 1, 1, 1, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0],
+      [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0],
+      [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 3],
+      [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1]
+    ],
+    startPos: { x: 0, y: 0 },
+    goalPos: { x: 10, y: 5 },
+    switches: [
+      { x: 1, y: 1, bridges: [{ x: 3, y: 2 }, { x: 4, y: 2 }] }
+    ]
+  },
+  // Level 11: Bước qua gạch vỡ (fragile zig-zag)
+  {
+    name: "Bước qua gạch vỡ",
+    hint: "Gạch đỏ chắn lối quanh co: lăn NẰM NGANG qua từng cụm, đừng dựng đứng lên chúng.",
+    width: 10,
+    height: 7,
+    tiles: [
+      [2, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+      [1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+      [0, 0, 1, 5, 1, 1, 1, 0, 0, 0],
+      [0, 0, 1, 1, 1, 5, 1, 1, 1, 0],
+      [0, 0, 0, 0, 0, 1, 1, 1, 1, 1],
+      [0, 0, 0, 0, 0, 0, 0, 1, 1, 3],
+      [0, 0, 0, 0, 0, 0, 0, 1, 1, 1]
+    ],
+    startPos: { x: 0, y: 0 },
+    goalPos: { x: 9, y: 5 }
+  },
+  // Level 12: Đại mê cung (large finale combining every mechanic)
+  {
+    name: "Đại mê cung",
+    hint: "Màn lớn nhất: mở cầu bằng nút, băng qua cầu, né gạch đỏ rồi luồn xuống dựng vào đích.",
+    width: 12,
+    height: 8,
+    tiles: [
+      [2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+      [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+      [1, 1, 4, 1, 1, 1, 6, 1, 1, 1, 0, 0],
+      [1, 1, 1, 1, 0, 0, 0, 0, 5, 1, 1, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 3],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1]
+    ],
+    startPos: { x: 0, y: 0 },
+    goalPos: { x: 11, y: 6 },
+    switches: [
+      { x: 2, y: 2, bridges: [{ x: 6, y: 2 }] }
+    ]
   }
 ];
 
