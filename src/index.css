@@ -501,6 +501,8 @@ body {
   box-sizing: border-box;
   animation: fadeIn 0.35s ease-out;
   width: 100%;
+  /* Anchor floating in-game controls (e.g. the Ma Trận D-pad). */
+  position: relative;
 }
 
 .game-top-bar {
@@ -2050,8 +2052,8 @@ body {
   .app-container { padding: 10px; }
   .matrix-3d-scene { padding: 14px 4px; }
   :root { --matrix-scale: 0.74; }
-  /* Slightly smaller D-Pad on short phones, but still big edge-to-edge keys */
-  .dpad-cross { width: 168px; height: 168px; }
+  /* Keep the floating D-Pad compact on short phones */
+  .dpad-cross { width: 122px; height: 122px; }
 }
 
 @media (max-width: 340px) {
@@ -2109,30 +2111,26 @@ body {
   -webkit-backface-visibility: hidden;
 }
 
-/* Virtual D-Pad — a connected cross of large, gap-free touch targets so a
-   thumb can hit any direction without aiming at small separate circles. */
+/* Virtual D-Pad — a connected cross of gap-free touch targets, floating in the
+   bottom-right corner of the game frame so it falls right under the thumb. */
 .dpad-panel {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 40;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.dpad-hint {
-  font-size: 10px;
-  color: var(--color-text-muted);
-  opacity: 0.75;
-  text-align: center;
 }
 
 .dpad-cross {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  width: 192px;
-  height: 192px;
+  width: 138px;
+  height: 138px;
   gap: 0;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55));
 }
 
 /* Place the four arrows in a plus shape; the four corners stay empty. */

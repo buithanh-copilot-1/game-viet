@@ -833,11 +833,8 @@ export default function MaTran({ onBack }) {
             </div>
           </div>
 
-          {/* D-Pad controls for mobile touch devices */}
+          {/* D-Pad controls — floating in the bottom-right corner of the frame */}
           <div className="dpad-panel">
-            <span className="dpad-hint">
-              Chạm phím mũi tên hoặc dùng bàn phím (W A S D / Phím mũi tên)
-            </span>
             <div className="dpad-cross">
               <button onClick={() => move('up')} className="dpad-key dpad-up" aria-label="Lên">
                 <ChevronUp size={28} />
