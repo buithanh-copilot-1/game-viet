@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-ssr
+.git
+.github
+*.log
+.DS_Store
+.vscode
+.idea
+src
+public
+index.html
+*.local
