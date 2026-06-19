@@ -2099,10 +2099,9 @@ body {
 .cube-face {
   position: absolute;
   border: 2px solid #3a2113;
-  background: linear-gradient(160deg, #9a5f30 0%, #7a4521 50%, #5a3217 100%);
-  /* No box-shadow at all: the dark inset shading looked like black blotches
-     sliding across the faces while the cube flipped. The border alone gives
-     each face enough definition. */
+  /* Flat solid wood colour — no gradient, no shadow — so nothing shifts or
+     trails across the faces while the cube flips. */
+  background: #7a4521;
   box-sizing: border-box;
   /* The brick is a solid opaque cuboid, so faces pointing away from the camera
      must NOT paint, otherwise far faces z-fight with near faces during the
