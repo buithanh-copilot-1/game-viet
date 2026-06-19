@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { playSound } from '../../utils/audio';
-import { HelpCircle, ArrowLeft, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
+import { HelpCircle, ArrowLeft, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Trophy, Lightbulb } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 const LEVEL_DATA = [
   // Level 1: Khởi đầu (Simple straight path with bends)
   {
-    name: "Mức 1: Khởi đầu",
+    name: "Khởi đầu",
+    hint: "Lăn khối tới ô vàng và DỰNG ĐỨNG vào đó để qua màn. Khi nằm ngang khối chiếm 2 ô.",
     width: 10,
     height: 5,
     tiles: [
@@ -21,7 +22,8 @@ const LEVEL_DATA = [
   },
   // Level 2: Đường quanh co (Narrow bends requiring lật states)
   {
-    name: "Mức 2: Đường quanh co",
+    name: "Đường quanh co",
+    hint: "Lối đi hẹp: căn hướng cẩn thận để khối không lăn lệch ra ngoài mép vực.",
     width: 9,
     height: 7,
     tiles: [
@@ -38,7 +40,8 @@ const LEVEL_DATA = [
   },
   // Level 3: Công tắc cầu nối (Soft switch & bridge)
   {
-    name: "Mức 3: Cầu công tắc",
+    name: "Cầu công tắc",
+    hint: "Đè khối lên nút vàng tròn để mở cây cầu bắc qua hố, rồi vượt sang bờ bên kia.",
     width: 9,
     height: 6,
     tiles: [
@@ -57,7 +60,8 @@ const LEVEL_DATA = [
   },
   // Level 4: Gạch kính dễ vỡ (Fragile tiles path)
   {
-    name: "Mức 4: Gạch dễ vỡ",
+    name: "Gạch dễ vỡ",
+    hint: "Gạch đỏ vỡ ngay nếu bạn DỰNG ĐỨNG lên. Chỉ được lăn NẰM NGANG lướt qua chúng.",
     width: 9,
     height: 6,
     tiles: [
@@ -70,17 +74,84 @@ const LEVEL_DATA = [
     ],
     startPos: { x: 0, y: 0 },
     goalPos: { x: 8, y: 4 }
+  },
+  // Level 5: Mê lộ gấp khúc (larger open zig-zag)
+  {
+    name: "Mê lộ gấp khúc",
+    hint: "Bản đồ rộng hơn với nhiều khúc cua. Men theo lối đi gấp khúc để tới đích.",
+    width: 10,
+    height: 6,
+    tiles: [
+      [2, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+      [1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
+      [0, 0, 0, 1, 1, 1, 1, 1, 0, 0],
+      [0, 0, 0, 0, 0, 1, 1, 1, 1, 1],
+      [0, 0, 0, 0, 0, 0, 0, 1, 1, 3],
+      [0, 0, 0, 0, 0, 0, 0, 1, 1, 1]
+    ],
+    startPos: { x: 0, y: 0 },
+    goalPos: { x: 9, y: 4 }
+  },
+  // Level 6: Bãi gạch đỏ (fragile-heavy)
+  {
+    name: "Bãi gạch đỏ",
+    hint: "Nhiều bẫy gạch đỏ rải rác: luôn lăn NẰM NGANG vượt qua, tuyệt đối đừng đứng thẳng.",
+    width: 10,
+    height: 6,
+    tiles: [
+      [2, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+      [1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
+      [0, 0, 0, 5, 5, 1, 1, 1, 0, 0],
+      [0, 0, 0, 1, 1, 1, 5, 1, 1, 1],
+      [0, 0, 0, 0, 0, 0, 1, 1, 1, 3],
+      [0, 0, 0, 0, 0, 0, 1, 1, 1, 1]
+    ],
+    startPos: { x: 0, y: 0 },
+    goalPos: { x: 9, y: 4 }
+  },
+  // Level 7: Công tắc & vực sâu (switch + bridge, longer)
+  {
+    name: "Công tắc & vực sâu",
+    hint: "Đè nút mở cầu trước, sau đó vòng qua cầu rồi xuống đích ở phía dưới.",
+    width: 10,
+    height: 7,
+    tiles: [
+      [2, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+      [1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+      [1, 4, 1, 0, 0, 0, 0, 0, 0, 0],
+      [1, 1, 1, 6, 6, 6, 1, 1, 1, 0],
+      [0, 0, 0, 0, 0, 0, 1, 1, 1, 0],
+      [0, 0, 0, 0, 0, 0, 1, 1, 3, 0],
+      [0, 0, 0, 0, 0, 0, 1, 1, 1, 0]
+    ],
+    startPos: { x: 0, y: 0 },
+    goalPos: { x: 8, y: 5 },
+    switches: [
+      { x: 1, y: 2, bridges: [{ x: 3, y: 3 }, { x: 4, y: 3 }, { x: 5, y: 3 }] }
+    ]
+  },
+  // Level 8: Thử thách tổng hợp (switch + vertical bridge + fragile)
+  {
+    name: "Thử thách tổng hợp",
+    hint: "Tổng hợp mọi cơ chế: mở cầu bằng nút, vượt cầu dọc, né gạch đỏ rồi dựng vào đích.",
+    width: 11,
+    height: 7,
+    tiles: [
+      [2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+      [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+      [1, 1, 4, 1, 1, 1, 0, 0, 0, 0, 0],
+      [1, 1, 1, 1, 6, 1, 1, 1, 1, 0, 0],
+      [0, 0, 0, 0, 6, 0, 0, 1, 1, 1, 1],
+      [0, 0, 0, 0, 6, 1, 1, 1, 5, 1, 3],
+      [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1]
+    ],
+    startPos: { x: 0, y: 0 },
+    goalPos: { x: 10, y: 5 },
+    switches: [
+      { x: 2, y: 2, bridges: [{ x: 4, y: 3 }, { x: 4, y: 4 }, { x: 4, y: 5 }] }
+    ]
   }
 ];
-
-const GoldMotif = () => (
-  <svg viewBox="0 0 32 32" style={{ width: '22px', height: '22px' }}>
-    <circle cx="16" cy="16" r="13" fill="none" stroke="var(--color-gold)" strokeWidth="0.8" strokeDasharray="2 1" />
-    <circle cx="16" cy="16" r="10" fill="none" stroke="var(--color-gold)" strokeWidth="0.5" />
-    <circle cx="16" cy="16" r="5" fill="none" stroke="var(--color-gold)" strokeWidth="0.8" />
-    <path d="M16 8 L16 24 M8 16 L24 16 M10.3 10.3 L21.7 21.7 M10.3 21.7 L21.7 10.3" stroke="var(--color-gold)" strokeWidth="0.8" />
-  </svg>
-);
 
 export default function MaTran({ onBack }) {
   const [currentLevelIdx, setCurrentLevelIdx] = useState(0);
@@ -517,8 +588,6 @@ export default function MaTran({ onBack }) {
       lift: hz,
       pose,
       hx, hy, hz,
-      shadowW: hx * 2,
-      shadowL: hy * 2,
     };
   };
 
@@ -535,12 +604,6 @@ export default function MaTran({ onBack }) {
   const cubeLift = geo.lift;
   const containerLeft = geo.left;
   const containerTop = geo.top;
-  const shadowWidth = geo.shadowW;
-  const shadowLength = geo.shadowL;
-  const shadowLeft = (40 - shadowWidth) / 2;
-  const shadowTop = (40 - shadowLength) / 2;
-  // Shadow sits on the stone surface (relative to the lifted container centre).
-  const shadowTranslateZ = -cubeLift + 0.5;
 
   let cubeContainerTransform = `translateZ(${FLOOR_TOP + cubeLift}px)`;
   if (isFalling) {
@@ -602,14 +665,21 @@ export default function MaTran({ onBack }) {
       ) : (
         <div className="bau-cua-main-area" style={{ flex: 1, justifyContent: 'space-between' }}>
           
-          {/* Level Info Widget */}
-          <div className="widget-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontWeight: '700', fontSize: '13px', color: 'var(--color-gold-bright)' }}>
-              {level.name}
+          {/* Level Info + per-level guidance */}
+          <div className="widget-panel matrix-level-panel">
+            <div className="matrix-level-head">
+              <div className="matrix-level-title">
+                <span className="matrix-level-counter">Màn {currentLevelIdx + 1}/{LEVEL_DATA.length}</span>
+                <span className="matrix-level-name">{level.name}</span>
+              </div>
+              <button onClick={resetLevelState} className="btn-secondary-action">
+                Chơi Lại
+              </button>
             </div>
-            <button onClick={resetLevelState} className="btn-secondary-action">
-              Chơi Lại Mức Này
-            </button>
+            <div className="matrix-hint">
+              <Lightbulb size={14} className="matrix-hint-icon" />
+              <span>{level.hint}</span>
+            </div>
           </div>
 
           {/* 3D Isometric Viewport */}
@@ -636,18 +706,6 @@ export default function MaTran({ onBack }) {
                     transform: cubeContainerTransform
                   }}
                 >
-                  {!isFalling && (
-                    <div
-                      className="cube-shadow"
-                      style={{
-                        width: `${shadowWidth}px`,
-                        height: `${shadowLength}px`,
-                        left: `${shadowLeft}px`,
-                        top: `${shadowTop}px`,
-                        transform: `translateZ(${shadowTranslateZ}px)`
-                      }}
-                    />
-                  )}
                   <div
                     className="cube-pivot"
                     style={{
@@ -657,10 +715,8 @@ export default function MaTran({ onBack }) {
                       width: '40px',
                       height: '40px',
                       transformStyle: 'preserve-3d',
+                      WebkitTransformStyle: 'preserve-3d',
                       transformOrigin: pivotOrigin,
-                      willChange: 'transform',
-                      backfaceVisibility: 'hidden',
-                      WebkitBackfaceVisibility: 'hidden',
                       animation: roll
                         ? `${pivotAnimation} 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards`
                         : 'none'
@@ -689,9 +745,7 @@ export default function MaTran({ onBack }) {
                           marginTop: `${-f.h / 2}px`,
                           transform: f.transform
                         }}
-                      >
-                        <GoldMotif />
-                      </div>
+                      />
                     ))}
                   </div>
                   </div>
