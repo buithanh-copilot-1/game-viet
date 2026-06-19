@@ -1008,10 +1008,39 @@ body {
    ======================================================== */
 .o-an-quan-board-wrapper {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  margin: 16px 0;
+  gap: 8px;
+  margin: 8px 0;
 }
+
+/* Clear "whose side" labels above and below the board */
+.oaq-side-tag {
+  width: 100%;
+  max-width: 440px;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 4px 0;
+  border-radius: 8px;
+  color: var(--color-text-muted);
+  background: rgba(10, 5, 5, 0.5);
+  border: 1px solid rgba(207, 161, 43, 0.12);
+  transition: all 0.25s ease;
+}
+
+.oaq-side-tag.active {
+  color: var(--color-gold-bright);
+  border-color: rgba(207, 161, 43, 0.5);
+  background: rgba(124, 18, 18, 0.3);
+  box-shadow: 0 0 10px rgba(207, 161, 43, 0.15);
+}
+
+.oaq-side-top.active { border-bottom-width: 2px; }
+.oaq-side-bottom.active { border-top-width: 2px; }
 
 .o-an-quan-wooden-board {
   width: 100%;
@@ -1049,23 +1078,25 @@ body {
 
 .mandarin-label {
   position: absolute;
-  top: 4px;
-  font-size: 8px;
+  top: 6px;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 1px;
-  color: rgba(207, 161, 43, 0.4);
+  letter-spacing: 2px;
+  color: var(--color-gold-bright);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
 .mandarin-count {
   position: absolute;
-  bottom: 4px;
-  background: rgba(10, 5, 5, 0.75);
-  padding: 1px 5px;
-  border-radius: 4px;
-  font-size: 9px;
-  font-weight: bold;
-  color: var(--color-text-secondary);
-  border: 1px solid rgba(207, 161, 43, 0.2);
+  bottom: 6px;
+  background: rgba(8, 4, 4, 0.85);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--color-gold-bright);
+  border: 1.5px solid rgba(207, 161, 43, 0.45);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.7);
   z-index: 8;
 }
 
@@ -1105,29 +1136,62 @@ body {
   border-right: none;
 }
 
+/* Selectable cells get an obvious, inviting glow so it's clear where to tap */
+.peasant-cell.selectable {
+  background: #311a13;
+  cursor: pointer;
+  animation: oaq-cell-pulse 1.6s ease-in-out infinite;
+}
+
 .peasant-cell.selectable:hover {
-  background: #2f1813;
+  background: #3d2017;
+}
+
+@keyframes oaq-cell-pulse {
+  0%, 100% { box-shadow: inset 0 2px 8px rgba(0,0,0,0.7), inset 0 0 0 1.5px rgba(207, 161, 43, 0.35); }
+  50% { box-shadow: inset 0 2px 8px rgba(0,0,0,0.7), inset 0 0 0 1.5px rgba(246, 209, 102, 0.85); }
 }
 
 .peasant-cell.selected {
-  background: #461f16;
+  background: #5a2619;
   border: 1.5px solid var(--color-gold);
   z-index: 5;
+  animation: none;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.7), 0 0 14px rgba(207, 161, 43, 0.4);
 }
 
+.peasant-cell.is-empty .peasant-count {
+  opacity: 0.45;
+  border-style: dashed;
+}
+
+/* Faint top accent reinforces which row belongs to whom */
+.peasant-cell.side-top { box-shadow: inset 0 3px 0 rgba(158, 28, 28, 0.45), inset 0 2px 8px rgba(0,0,0,0.7); }
+.peasant-cell.side-bottom { box-shadow: inset 0 -3px 0 rgba(207, 161, 43, 0.4), inset 0 2px 8px rgba(0,0,0,0.7); }
+
+/* The seed count is the hero: a bold, high-contrast chip centered in each cell */
 .peasant-count {
   position: absolute;
-  bottom: 2px;
-  font-size: 9px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  font-size: 15px;
   font-weight: 800;
-  color: var(--color-text-muted);
-  background: rgba(10, 5, 5, 0.5);
-  padding: 0 3px;
-  border-radius: 3px;
+  color: var(--color-text-primary);
+  background: rgba(8, 4, 4, 0.82);
+  border: 1.5px solid rgba(207, 161, 43, 0.5);
+  border-radius: 999px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.7);
   z-index: 8;
 }
 
-/* 3D Realistic Stone Engine */
+/* 3D Realistic Stone Engine — kept as subtle texture behind the count chip */
 .stone-container {
   position: absolute;
   width: 80%;
@@ -1138,6 +1202,8 @@ body {
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  opacity: 0.5;
+  z-index: 1;
 }
 
 .small-stone {
@@ -1163,32 +1229,48 @@ body {
 .direction-picker-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(10, 5, 5, 0.8);
+  background: rgba(8, 4, 4, 0.92);
   border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  z-index: 20;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.direction-picker-buttons {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  z-index: 20;
-  animation: fadeIn 0.2s ease-out;
+  gap: 28px;
 }
 
 .direction-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: rgba(124, 18, 18, 0.3);
+  border: 1.5px solid rgba(207, 161, 43, 0.4);
   color: var(--color-gold-bright);
-  font-weight: 600;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 700;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease;
+}
+
+.direction-btn:hover {
+  background: rgba(124, 18, 18, 0.5);
 }
 
 .direction-btn:active {
-  transform: scale(0.9);
+  transform: scale(0.92);
 }
 
 .direction-btn-label {
-  font-size: 9px;
-  margin-top: 2px;
+  font-size: 10px;
 }
 
 .direction-picker-title-box {
@@ -1197,24 +1279,149 @@ body {
 }
 
 .direction-picker-label {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--color-text-secondary);
 }
 
 .direction-picker-val {
-  font-size: 16px;
+  font-size: 22px;
   font-weight: 850;
   color: var(--color-gold-bright);
+  line-height: 1.1;
+}
+
+.direction-picker-hint {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+  font-family: var(--font-sans);
 }
 
 .btn-cancel-selection {
-  margin-top: 4px;
-  font-size: 10px;
-  padding: 2px 8px;
-  border-radius: 4px;
+  font-size: 11px;
+  padding: 4px 14px;
+  border-radius: 8px;
   background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  border: 1px solid rgba(239, 68, 68, 0.35);
   color: #f87171;
+}
+
+/* ---- Ô Ăn Quan: status panel, turn banner, hint bar, mode switch ---- */
+.oaq-status-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.oaq-control-row {
+  display: flex;
+  justify-content: center;
+}
+
+.oaq-mode-switch {
+  display: flex;
+  gap: 4px;
+  background: #0a0505;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(207, 161, 43, 0.15);
+}
+
+.oaq-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 7px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+}
+
+.oaq-mode-btn.active {
+  background: rgba(207, 161, 43, 0.22);
+  border-color: var(--color-gold);
+  color: var(--color-gold-bright);
+}
+
+.oaq-turn-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  background: rgba(10, 5, 5, 0.6);
+  border: 1.5px solid rgba(207, 161, 43, 0.18);
+  transition: all 0.25s ease;
+}
+
+.oaq-turn-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.oaq-turn-banner.turn-bottom,
+.oaq-turn-banner.turn-top {
+  border-color: rgba(207, 161, 43, 0.5);
+  background: rgba(124, 18, 18, 0.28);
+  color: var(--color-gold-bright);
+  box-shadow: 0 0 14px rgba(207, 161, 43, 0.12);
+}
+
+.oaq-turn-banner.turn-bottom .oaq-turn-dot,
+.oaq-turn-banner.turn-top .oaq-turn-dot {
+  background: var(--color-gold-bright);
+  box-shadow: 0 0 8px var(--color-gold-bright);
+  animation: oaq-dot-pulse 1.2s ease-in-out infinite;
+}
+
+.oaq-turn-banner.is-over {
+  border-color: rgba(207, 161, 43, 0.6);
+  background: linear-gradient(135deg, rgba(124, 18, 18, 0.4), rgba(10, 5, 5, 0.6));
+  color: var(--color-gold-bright);
+  font-family: var(--font-serif);
+  font-size: 16px;
+}
+
+.oaq-turn-banner.is-over .oaq-turn-dot { display: none; }
+
+@keyframes oaq-dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.7; }
+}
+
+.oaq-hint-bar {
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 8px;
+}
+
+.oaq-hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.oaq-hint-active {
+  color: var(--color-gold-bright);
+  font-weight: 600;
+  animation: bounce-subtle 1.6s ease-in-out infinite;
+}
+
+.oaq-hint-sowing {
+  color: var(--color-text-secondary);
+  font-weight: 600;
 }
 
 /* ========================================================

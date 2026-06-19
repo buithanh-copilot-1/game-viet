@@ -128,6 +128,17 @@ export default function OAnQuan({ onBack, onlineSession }) {
   const isWaitingOnline = isOnline && onlineMeta.players.length < 2;
   const isMyOnlineTurn = isOnline && onlineMeta.playerRole === onlineCurrentRole;
 
+  // Friendly labels so each side of the board is unambiguous.
+  const sideLabels = (() => {
+    if (isOnline) {
+      const iAmTop = onlineMeta.playerRole === 'P2';
+      return { top: iAmTop ? 'Bạn' : 'Đối thủ', bottom: iAmTop ? 'Đối thủ' : 'Bạn' };
+    }
+    if (gameMode === 'pve') return { top: 'Máy', bottom: 'Bạn' };
+    return { top: 'Người 2', bottom: 'Người 1' };
+  })();
+  const selectedSeeds = selectedSlot !== null ? board[selectedSlot].small : 0;
+
   const makeAIMove = () => {
     const aiSlots = [6, 7, 8, 9, 10].filter(idx => board[idx].small > 0);
     if (aiSlots.length === 0) return;
@@ -403,76 +414,70 @@ export default function OAnQuan({ onBack, onlineSession }) {
       </div>
 
       <div className="bau-cua-main-area" style={{ flex: 1, justifyContent: 'space-between' }}>
-        <div className="widget-panel dashboard-grid">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+        <div className="widget-panel oaq-status-panel">
+          <div className="oaq-control-row">
             {isOnline ? (
               <div className="online-game-badge">
-                <Wifi size={13} /> Phòng {onlineMeta.roomCode} - {onlineMeta.playerRole === 'P1' ? 'Bạn dưới' : 'Bạn trên'}
+                <Wifi size={13} /> Phòng {onlineMeta.roomCode} · {onlineMeta.playerRole === 'P1' ? 'Bạn ở dưới' : 'Bạn ở trên'}
               </div>
             ) : (
-              <div style={{ display: 'flex', gap: '4px', background: '#0a0505', padding: '3px', borderRadius: '8px', border: '1px solid rgba(207, 161, 43, 0.15)' }}>
+              <div className="oaq-mode-switch">
                 <button
                   onClick={() => { playSound('click'); setGameMode('pve'); handleReset(); }}
-                  className="btn-secondary-action"
-                  style={{
-                    background: gameMode === 'pve' ? 'rgba(207, 161, 43, 0.25)' : 'transparent',
-                    borderColor: gameMode === 'pve' ? 'var(--color-gold)' : 'transparent',
-                    color: gameMode === 'pve' ? 'var(--color-gold-bright)' : 'var(--color-text-secondary)',
-                    fontSize: '9px',
-                    padding: '4px 8px'
-                  }}
+                  className={`oaq-mode-btn ${gameMode === 'pve' ? 'active' : ''}`}
                 >
-                  <Cpu size={10} style={{ display: 'inline', marginRight: '3px', transform: 'translateY(-1px)' }} /> Đấu Máy
+                  <Cpu size={12} /> Đấu Máy
                 </button>
                 <button
                   onClick={() => { playSound('click'); setGameMode('pvp'); handleReset(); }}
-                  className="btn-secondary-action"
-                  style={{
-                    background: gameMode === 'pvp' ? 'rgba(207, 161, 43, 0.25)' : 'transparent',
-                    borderColor: gameMode === 'pvp' ? 'var(--color-gold)' : 'transparent',
-                    color: gameMode === 'pvp' ? 'var(--color-gold-bright)' : 'var(--color-text-secondary)',
-                    fontSize: '9px',
-                    padding: '4px 8px'
-                  }}
+                  className={`oaq-mode-btn ${gameMode === 'pvp' ? 'active' : ''}`}
                 >
-                  <Users size={10} style={{ display: 'inline', marginRight: '3px', transform: 'translateY(-1px)' }} /> 2 Người
+                  <Users size={12} /> 2 Người
                 </button>
               </div>
             )}
+          </div>
 
-            <div style={{ fontSize: '11px', fontWeight: '600', textAlign: 'right' }}>
-              <span className={winner ? 'text-gold-gradient' : ''} style={{ color: winner ? undefined : 'var(--color-text-secondary)', fontFamily: winner ? 'var(--font-serif)' : undefined }}>
-                {winner || isWaitingOnline ? renderWinnerStatus() : (
-                  <>
-                    Lượt:{' '}
-                    <strong style={{ color: 'var(--color-gold-bright)' }}>{renderWinnerStatus()}</strong>
-                  </>
-                )}
-              </span>
-            </div>
+          <div className={`oaq-turn-banner ${winner ? 'is-over' : (!isWaitingOnline && isP1Turn ? 'turn-bottom' : 'turn-top')}`}>
+            <span className="oaq-turn-dot" />
+            <span className="oaq-turn-text">{renderWinnerStatus()}</span>
           </div>
 
           <div className="vs-scoreboard">
-            <div className={`vs-score-card ${!isP1Turn ? 'active' : ''}`}>
-              <div className="score-card-label">ĐIỂM TRÊN</div>
+            <div className={`vs-score-card ${!isP1Turn && !winner ? 'active' : ''}`}>
+              <div className="score-card-label">{sideLabels.top} · Hàng trên</div>
               <div className="score-card-value">{p2Score}</div>
             </div>
-            <div className={`vs-score-card ${isP1Turn ? 'active' : ''}`}>
-              <div className="score-card-label">ĐIỂM DƯỚI</div>
+            <div className={`vs-score-card ${isP1Turn && !winner ? 'active' : ''}`}>
+              <div className="score-card-label">{sideLabels.bottom} · Hàng dưới</div>
               <div className="score-card-value">{p1Score}</div>
             </div>
           </div>
         </div>
 
-        <div style={{ height: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          {animatingHand && (
-            <span className="win-loss-text-overlay" style={{ position: 'static', animationName: 'bounce-subtle', fontSize: '11px' }}>
-              Đang rải: {animatingHand.count} sỏi
+        <div className="oaq-hint-bar">
+          {animatingHand ? (
+            <span className="oaq-hint oaq-hint-sowing">
+              Đang rải {animatingHand.count} sỏi…
             </span>
+          ) : isWaitingOnline ? (
+            <span className="oaq-hint">Đang chờ người chơi thứ 2 vào phòng…</span>
+          ) : winner ? (
+            <span className="oaq-hint">Ván đã kết thúc — bấm “Ván mới” để chơi lại.</span>
+          ) : selectedSlot !== null ? (
+            <span className="oaq-hint oaq-hint-active">Chọn hướng rải sỏi bên dưới ▾</span>
+          ) : (isOnline && !isMyOnlineTurn) || (!isOnline && gameMode === 'pve' && !isP1Turn) ? (
+            <span className="oaq-hint">Đang chờ đối thủ đi…</span>
+          ) : (
+            <span className="oaq-hint oaq-hint-active">Chạm vào một ô bên bạn để chọn quân ⤵</span>
           )}
         </div>
 
         <div className="o-an-quan-board-wrapper">
+          <div className={`oaq-side-tag oaq-side-top ${!isP1Turn && !winner ? 'active' : ''}`}>
+            {sideLabels.top} · hàng trên
+          </div>
+
           <div className="o-an-quan-wooden-board">
             <div className={`o-an-quan-mandarin-slot mandarin-left ${selectedSlot === 11 ? 'selected' : ''}`}>
               <div className="mandarin-label">QUAN</div>
@@ -485,12 +490,13 @@ export default function OAnQuan({ onBack, onlineSession }) {
                 {[10, 9, 8, 7, 6].map(idx => {
                   const isSelected = selectedSlot === idx;
                   const canSelect = canInteractWithSlot(idx);
+                  const isEmpty = board[idx].small === 0;
                   return (
                     <button
                       key={idx}
                       onClick={() => handleSelectSlot(idx)}
                       disabled={!canSelect}
-                      className={`peasant-cell ${canSelect ? 'selectable' : ''} ${isSelected ? 'selected' : ''}`}
+                      className={`peasant-cell side-top ${canSelect ? 'selectable' : ''} ${isSelected ? 'selected' : ''} ${isEmpty ? 'is-empty' : ''}`}
                     >
                       {renderSeeds(board[idx].small, 0)}
                       <div className="peasant-count">{board[idx].small}</div>
@@ -503,12 +509,13 @@ export default function OAnQuan({ onBack, onlineSession }) {
                 {[0, 1, 2, 3, 4].map(idx => {
                   const isSelected = selectedSlot === idx;
                   const canSelect = canInteractWithSlot(idx);
+                  const isEmpty = board[idx].small === 0;
                   return (
                     <button
                       key={idx}
                       onClick={() => handleSelectSlot(idx)}
                       disabled={!canSelect}
-                      className={`peasant-cell ${canSelect ? 'selectable' : ''} ${isSelected ? 'selected' : ''}`}
+                      className={`peasant-cell side-bottom ${canSelect ? 'selectable' : ''} ${isSelected ? 'selected' : ''} ${isEmpty ? 'is-empty' : ''}`}
                     >
                       {renderSeeds(board[idx].small, 0)}
                       <div className="peasant-count">{board[idx].small}</div>
@@ -526,23 +533,30 @@ export default function OAnQuan({ onBack, onlineSession }) {
 
             {selectedSlot !== null && (
               <div className="direction-picker-overlay">
-                <button onClick={() => handleDirectionChoice(-1)} className="direction-btn">
-                  <ArrowLeftCircle size={44} />
-                  <span className="direction-btn-label">Ngược chiều kim</span>
-                </button>
                 <div className="direction-picker-title-box">
-                  <div className="direction-picker-label">Đang chọn</div>
-                  <div className="direction-picker-val">Ô số {selectedSlot + 1}</div>
-                  <button onClick={() => setSelectedSlot(null)} className="btn-cancel-selection">
-                    Hủy
+                  <div className="direction-picker-label">Bạn đang cầm</div>
+                  <div className="direction-picker-val">{selectedSeeds} sỏi</div>
+                  <div className="direction-picker-hint">Chọn hướng rải:</div>
+                </div>
+                <div className="direction-picker-buttons">
+                  <button onClick={() => handleDirectionChoice(-1)} className="direction-btn">
+                    <ArrowLeftCircle size={40} />
+                    <span className="direction-btn-label">Ngược chiều kim</span>
+                  </button>
+                  <button onClick={() => handleDirectionChoice(1)} className="direction-btn">
+                    <ArrowRightCircle size={40} />
+                    <span className="direction-btn-label">Thuận chiều kim</span>
                   </button>
                 </div>
-                <button onClick={() => handleDirectionChoice(1)} className="direction-btn">
-                  <ArrowRightCircle size={44} />
-                  <span className="direction-btn-label">Thuận chiều kim</span>
+                <button onClick={() => setSelectedSlot(null)} className="btn-cancel-selection">
+                  Hủy chọn
                 </button>
               </div>
             )}
+          </div>
+
+          <div className={`oaq-side-tag oaq-side-bottom ${isP1Turn && !winner ? 'active' : ''}`}>
+            {sideLabels.bottom} · hàng dưới
           </div>
         </div>
 
