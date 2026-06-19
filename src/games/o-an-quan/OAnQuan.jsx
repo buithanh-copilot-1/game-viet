@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { playSound } from '../../utils/audio';
-import { RotateCcw, HelpCircle, Users, Cpu, ArrowLeft, ArrowLeftCircle, ArrowRightCircle, Wifi } from 'lucide-react';
+import { RotateCcw, HelpCircle, Users, Cpu, ArrowLeft, ArrowLeftCircle, ArrowRightCircle, Wifi, Hand } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -381,6 +381,21 @@ export default function OAnQuan({ onBack, onlineSession }) {
     );
   };
 
+  // The sowing hand hovers over whichever cell is currently being sown,
+  // showing how many seeds are still in hand. animatingHand.index follows
+  // the seeds around the board, so the hand moves cell to cell.
+  const renderHand = (idx) => {
+    if (!animatingHand || animatingHand.index !== idx) return null;
+    return (
+      <div className="sowing-hand" aria-hidden="true" key={`hand-${animatingHand.count}`}>
+        <Hand size={26} strokeWidth={2.4} />
+        {animatingHand.count > 0 && (
+          <span className="sowing-hand-count">{animatingHand.count}</span>
+        )}
+      </div>
+    );
+  };
+
   const renderWinnerStatus = () => {
     if (isWaitingOnline) return 'Chờ người chơi thứ 2...';
     if (winner === 'Draw') return 'Trận đấu hòa!';
@@ -477,6 +492,7 @@ export default function OAnQuan({ onBack, onlineSession }) {
               <div className="mandarin-label">QUAN</div>
               {renderSeeds(board[11].small, board[11].big, true)}
               <div className="mandarin-count">{board[11].small + board[11].big * 10}</div>
+              {renderHand(11)}
             </div>
 
             <div className="o-an-quan-center-grid">
@@ -494,6 +510,7 @@ export default function OAnQuan({ onBack, onlineSession }) {
                     >
                       {renderSeeds(board[idx].small, 0)}
                       <div className="peasant-count">{board[idx].small}</div>
+                      {renderHand(idx)}
                     </button>
                   );
                 })}
@@ -513,6 +530,7 @@ export default function OAnQuan({ onBack, onlineSession }) {
                     >
                       {renderSeeds(board[idx].small, 0)}
                       <div className="peasant-count">{board[idx].small}</div>
+                      {renderHand(idx)}
                     </button>
                   );
                 })}
@@ -523,6 +541,7 @@ export default function OAnQuan({ onBack, onlineSession }) {
               <div className="mandarin-label">QUAN</div>
               {renderSeeds(board[5].small, board[5].big, true)}
               <div className="mandarin-count">{board[5].small + board[5].big * 10}</div>
+              {renderHand(5)}
             </div>
 
             {selectedSlot !== null && (
