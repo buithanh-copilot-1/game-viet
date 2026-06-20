@@ -349,6 +349,7 @@ export default function CoCaRo({ onBack, onlineSession }) {
                   <button
                     key={`${rIdx}-${cIdx}`}
                     onClick={() => handleCellClick(rIdx, cIdx)}
+                    onMouseDown={(e) => e.preventDefault()}
                     disabled={!!winner || (isOnline ? isWaitingOnline || !isMyOnlineTurn : (gameMode === 'pve' && currentSymbol !== humanSymbol))}
                     className={`caro-cell ${isWinning ? 'winning-cell' : ''}`}
                   >
