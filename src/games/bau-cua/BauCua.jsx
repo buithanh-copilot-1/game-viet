@@ -199,7 +199,7 @@ export default function BauCua({ onBack }) {
 
         {/* Shaker (Lid & Plate / Bowl) */}
         <div className="widget-panel shaker-box">
-          <div className="shaker-plate" style={{ animationName: rolling ? 'shake' : 'none', animationDuration: '0.6s', animationIterationCount: 'infinite' }}>
+          <div className={`shaker-plate${rolling ? ' is-shaking' : ''}`}>
             
             {/* Opened state: Dice are visible */}
             {!bowlClosed && (
@@ -217,9 +217,11 @@ export default function BauCua({ onBack }) {
 
             {/* Closed Bowl / Lid */}
             {bowlClosed && (
-              <div className="shaker-lid">
+              <div className={`shaker-lid${rolling ? '' : ' is-idle'}`}>
                 <ShakerBowl />
-                <span className="lid-text">Đang Úp</span>
+                <span className={`lid-text${rolling ? ' is-shaking-text' : ''}`}>
+                  {rolling ? 'Đang Xóc...' : 'Đang Úp'}
+                </span>
               </div>
             )}
           </div>
