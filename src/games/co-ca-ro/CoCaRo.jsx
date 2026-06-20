@@ -13,6 +13,7 @@ export default function CoCaRo({ onBack, onlineSession }) {
   const [isXNext, setIsXNext] = useState(onlineSession?.initialState?.isXNext ?? true);
   const [gameMode, setGameMode] = useState('pve');
   const [difficulty, setDifficulty] = useState(2); // level id, see LEVELS in aiEngine.js
+  const [humanSymbol, setHumanSymbol] = useState(() => (Math.random() < 0.5 ? 'X' : 'O'));
   const [aiThinking, setAiThinking] = useState(false);
   const [winner, setWinner] = useState(onlineSession?.initialState?.winner || null);
   const [winningLine, setWinningLine] = useState(onlineSession?.initialState?.winningLine || []);
@@ -80,14 +81,17 @@ export default function CoCaRo({ onBack, onlineSession }) {
     };
   }, [isOnline, onlineSession]);
 
+  const aiSymbol = humanSymbol === 'X' ? 'O' : 'X';
+  const currentSymbol = isXNext ? 'X' : 'O';
+
   useEffect(() => {
-    if (!isOnline && gameMode === 'pve' && !isXNext && !winner) {
+    if (!isOnline && gameMode === 'pve' && currentSymbol === aiSymbol && !winner) {
       const timer = setTimeout(() => {
         makeAIMove();
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [isOnline, isXNext, gameMode, winner]);
+  }, [isOnline, isXNext, gameMode, winner, aiSymbol]);
 
   const onlineCurrentRole = isXNext ? 'P1' : 'P2';
   const isWaitingOnline = isOnline && onlineMeta.players.length < 2;
@@ -99,7 +103,9 @@ export default function CoCaRo({ onBack, onlineSession }) {
       const iAmX = onlineMeta.playerRole === 'P1';
       return { x: iAmX ? 'Bạn' : 'Đối thủ', o: iAmX ? 'Đối thủ' : 'Bạn' };
     }
-    if (gameMode === 'pve') return { x: 'Bạn', o: 'Máy' };
+    if (gameMode === 'pve') {
+      return humanSymbol === 'X' ? { x: 'Bạn', o: 'Máy' } : { x: 'Máy', o: 'Bạn' };
+    }
     return { x: 'Người 1', o: 'Người 2' };
   })();
   const turnActive = !winner && !isWaitingOnline;
@@ -118,7 +124,7 @@ export default function CoCaRo({ onBack, onlineSession }) {
       return;
     }
 
-    if (gameMode === 'pve' && !isXNext) return;
+    if (gameMode === 'pve' && currentSymbol !== humanSymbol) return;
     placePiece(row, col);
   };
 
@@ -136,8 +142,8 @@ export default function CoCaRo({ onBack, onlineSession }) {
     if (winResult) {
       setWinner(symbol);
       setWinningLine(winResult);
-      playSound(gameMode === 'pve' && symbol === 'O' ? 'lose' : 'win');
-      if (!(gameMode === 'pve' && symbol === 'O')) {
+      playSound(gameMode === 'pve' && symbol === aiSymbol ? 'lose' : 'win');
+      if (!(gameMode === 'pve' && symbol === aiSymbol)) {
         confetti({ particleCount: 50, spread: 40, origin: { y: 0.8 } });
       }
     } else if (checkDraw(newBoard)) {
@@ -171,7 +177,7 @@ export default function CoCaRo({ onBack, onlineSession }) {
     };
 
     worker.addEventListener('message', handleMessage);
-    worker.postMessage({ board, level: difficulty, aiPlayer: 'O', humanPlayer: 'X', requestId });
+    worker.postMessage({ board, level: difficulty, aiPlayer: aiSymbol, humanPlayer: humanSymbol, requestId });
   };
 
   const isCellInWinningLine = (r, c) => winningLine.some(cell => cell.row === r && cell.col === c);
@@ -192,18 +198,24 @@ export default function CoCaRo({ onBack, onlineSession }) {
     setWinner(null);
     setWinningLine([]);
     setLastMove(null);
+    setHumanSymbol(Math.random() < 0.5 ? 'X' : 'O');
   };
 
   const renderStatus = () => {
     if (isWaitingOnline) return <span style={{ color: 'var(--color-gold)' }}>Chờ người chơi thứ 2...</span>;
     if (winner === 'Draw') return <span style={{ color: 'var(--color-gold)' }}>Hòa nhau!</span>;
-    if (!isOnline && gameMode === 'pve' && !isXNext && aiThinking) {
+    if (!isOnline && gameMode === 'pve' && aiThinking) {
       return <span style={{ color: 'var(--color-text-secondary)' }}>Máy đang suy nghĩ...</span>;
     }
     if (winner) {
-      const label = isOnline
-        ? (winner === (onlineMeta.playerRole === 'P1' ? 'X' : 'O') ? 'Bạn thắng!' : 'Đối thủ thắng!')
-        : `${winner === 'X' ? 'Người chơi X' : (gameMode === 'pve' ? 'Máy (O)' : 'Người chơi O')} thắng!`;
+      let label;
+      if (isOnline) {
+        label = winner === (onlineMeta.playerRole === 'P1' ? 'X' : 'O') ? 'Bạn thắng!' : 'Đối thủ thắng!';
+      } else if (gameMode === 'pve') {
+        label = winner === aiSymbol ? `Máy (${aiSymbol}) thắng!` : `Bạn (${humanSymbol}) thắng!`;
+      } else {
+        label = `Người chơi ${winner} thắng!`;
+      }
       return <span className="text-gold-gradient" style={{ fontFamily: 'var(--font-serif)', fontSize: '14px' }}>{label}</span>;
     }
 
@@ -302,7 +314,7 @@ export default function CoCaRo({ onBack, onlineSession }) {
                   <button
                     key={`${rIdx}-${cIdx}`}
                     onClick={() => handleCellClick(rIdx, cIdx)}
-                    disabled={!!winner || (isOnline ? isWaitingOnline || !isMyOnlineTurn : (gameMode === 'pve' && !isXNext))}
+                    disabled={!!winner || (isOnline ? isWaitingOnline || !isMyOnlineTurn : (gameMode === 'pve' && currentSymbol !== humanSymbol))}
                     className={`caro-cell ${isWinning ? 'winning-cell' : ''}`}
                   >
                     {!cell && <span className="caro-cell-dot" />}
