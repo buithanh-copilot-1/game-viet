@@ -5,7 +5,34 @@ import CoCaRo from './games/co-ca-ro/CoCaRo'
 import MaTran from './games/ma-tran/MaTran'
 import OnlineRoom from './online/OnlineRoom'
 import { playSound, toggleSound, isSoundEnabled } from './utils/audio'
-import { Volume2, VolumeX, Gamepad2, Info, Wifi } from 'lucide-react'
+import { Volume2, VolumeX, Gamepad2, Info, Wifi, ChevronRight } from 'lucide-react'
+
+const GAMES = [
+  {
+    id: 'o-an-quan', art: 'OQ', accent: '#cfa12b', online: true,
+    title: 'Ô Ăn Quan',
+    desc: 'Rải sỏi ăn quan chiến thuật, tính toán ăn dồn dập áp đảo đối phương.',
+    tags: ['Đấu máy · 3 mức', '2 người', 'Online'],
+  },
+  {
+    id: 'bau-cua', art: 'BC', accent: '#ff5252', online: false,
+    title: 'Bầu Cua Tôm Cá',
+    desc: 'Đoán linh vật xúc xắc ngày Tết, xốc đĩa lắc bát cực vui.',
+    tags: ['May rủi', 'Cược xu'],
+  },
+  {
+    id: 'co-ca-ro', art: 'XO', accent: '#4dc3ff', online: true,
+    title: 'Cờ Ca Rô',
+    desc: 'Gomoku 5 quân thắng hàng, đấu trí với máy hoặc bạn bè.',
+    tags: ['Đấu máy · 3 mức', '2 người', 'Online'],
+  },
+  {
+    id: 'ma-tran', art: '3D', accent: '#9b6dff', online: false,
+    title: 'Ma Trận Lập Phương',
+    desc: 'Lật khối 3D khéo léo để lọt hố đích, tránh rơi khỏi khoảng không.',
+    tags: ['Giải đố 3D', '12 màn'],
+  },
+];
 
 function App() {
   const [currentGame, setCurrentGame] = useState(null);
@@ -92,55 +119,31 @@ function App() {
         </div>
 
         <div className="game-card-list">
-          <div className="game-card-wrapper">
-            <button onClick={() => selectGame('o-an-quan')} className="game-card">
-              <div className="game-card-info">
-                <span className="game-card-title">Ô Ăn Quan</span>
-                <span className="game-card-desc">
-                  Rải sỏi ăn quan chiến thuật, tính toán ăn dồn dập thắng áp đảo đối phương.
-                </span>
-              </div>
-              <div className="game-card-art">OQ</div>
-            </button>
-            <button onClick={() => selectOnlineGame('o-an-quan')} className="btn-secondary-action game-card-online">
-              <Wifi size={13} /> Online
-            </button>
-          </div>
-
-          <button onClick={() => selectGame('bau-cua')} className="game-card">
-            <div className="game-card-info">
-              <span className="game-card-title">Bầu Cua Tôm Cá</span>
-              <span className="game-card-desc">
-                Thử tài đoán linh vật xúc xắc ngày Tết, âm thanh xốc đĩa bát lắc cực vui.
-              </span>
+          {GAMES.map((game) => (
+            <div key={game.id} className="game-card-wrapper" style={{ '--card-accent': game.accent }}>
+              <button onClick={() => selectGame(game.id)} className="game-card">
+                <div className="game-card-art">{game.art}</div>
+                <div className="game-card-info">
+                  <span className="game-card-title">{game.title}</span>
+                  <span className="game-card-desc">{game.desc}</span>
+                  <div className="game-card-tags">
+                    {game.tags.map((tag) => (
+                      <span key={tag} className="game-tag">{tag}</span>
+                    ))}
+                  </div>
+                </div>
+                <ChevronRight size={20} className="game-card-arrow" />
+              </button>
+              {game.online && (
+                <button
+                  onClick={() => selectOnlineGame(game.id)}
+                  className="game-card-online"
+                >
+                  <Wifi size={12} /> Online
+                </button>
+              )}
             </div>
-            <div className="game-card-art">BC</div>
-          </button>
-
-          <div className="game-card-wrapper">
-            <button onClick={() => selectGame('co-ca-ro')} className="game-card">
-              <div className="game-card-info">
-                <span className="game-card-title">Cờ Ca Rô</span>
-                <span className="game-card-desc">
-                  Gomoku 5 quân thắng hàng đấu trí với Máy, 2 người cùng máy hoặc chơi online.
-                </span>
-              </div>
-              <div className="game-card-art">XO</div>
-            </button>
-            <button onClick={() => selectOnlineGame('co-ca-ro')} className="btn-secondary-action game-card-online">
-              <Wifi size={13} /> Online
-            </button>
-          </div>
-
-          <button onClick={() => selectGame('ma-tran')} className="game-card">
-            <div className="game-card-info">
-              <span className="game-card-title">Ma Trận Lập Phương</span>
-              <span className="game-card-desc">
-                Lật khối lập phương 3D khéo léo để lọt hố đích, tránh rơi khỏi khoảng không.
-              </span>
-            </div>
-            <div className="game-card-art">3D</div>
-          </button>
+          ))}
         </div>
       </main>
 

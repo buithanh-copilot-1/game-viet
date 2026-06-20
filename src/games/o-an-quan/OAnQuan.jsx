@@ -27,6 +27,7 @@ export default function OAnQuan({ onBack, onlineSession }) {
   const [p2Score, setP2Score] = useState(onlineSession?.initialState?.p2Score || 0);
   const [isP1Turn, setIsP1Turn] = useState(onlineSession?.initialState?.isP1Turn ?? true);
   const [gameMode, setGameMode] = useState('pve');
+  const [difficulty, setDifficulty] = useState('medium'); // 'easy' | 'medium' | 'hard'
   const [winner, setWinner] = useState(onlineSession?.initialState?.winner || null);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -139,36 +140,12 @@ export default function OAnQuan({ onBack, onlineSession }) {
   })();
   const selectedSeeds = selectedSlot !== null ? board[selectedSlot].small : 0;
 
-  const makeAIMove = () => {
-    const aiSlots = [6, 7, 8, 9, 10].filter(idx => board[idx].small > 0);
-    if (aiSlots.length === 0) return;
-
-    let bestMove = null;
-    let maxCapture = -1;
-
-    aiSlots.forEach(slot => {
-      [1, -1].forEach(dir => {
-        const captureCount = simulateMove(slot, dir);
-        if (captureCount > maxCapture) {
-          maxCapture = captureCount;
-          bestMove = { slot, dir };
-        }
-      });
-    });
-
-    if (bestMove && maxCapture >= 0) {
-      executeSowing(bestMove.slot, bestMove.dir);
-    } else {
-      const randomSlot = aiSlots[Math.floor(Math.random() * aiSlots.length)];
-      const randomDir = Math.random() > 0.5 ? 1 : -1;
-      executeSowing(randomSlot, randomDir);
-    }
-  };
-
-  const simulateMove = (startSlot, dir) => {
-    const tempBoard = board.map(s => ({ ...s }));
+  // Pure simulation of one sow from `startSlot` in `dir` on a copy of srcBoard.
+  // Returns the resulting board plus how many seeds it captured.
+  const simulateOn = (srcBoard, startSlot, dir) => {
+    const tempBoard = srcBoard.map(s => ({ ...s }));
     let seeds = tempBoard[startSlot].small;
-    if (seeds === 0) return 0;
+    if (seeds === 0) return { board: tempBoard, captured: 0 };
 
     tempBoard[startSlot].small = 0;
     let curr = startSlot;
@@ -199,7 +176,53 @@ export default function OAnQuan({ onBack, onlineSession }) {
         }
       }
     }
-    return captured;
+    return { board: tempBoard, captured };
+  };
+
+  // Best capture the human (bottom row, slots 0-4) could make from a board.
+  const bestOpponentCapture = (srcBoard) => {
+    let best = 0;
+    [0, 1, 2, 3, 4].forEach(slot => {
+      if (srcBoard[slot].small === 0) return;
+      [1, -1].forEach(dir => {
+        const cap = simulateOn(srcBoard, slot, dir).captured;
+        if (cap > best) best = cap;
+      });
+    });
+    return best;
+  };
+
+  const makeAIMove = () => {
+    const aiSlots = [6, 7, 8, 9, 10].filter(idx => board[idx].small > 0);
+    if (aiSlots.length === 0) return;
+
+    // Dễ: đi ngẫu nhiên một nước hợp lệ.
+    if (difficulty === 'easy') {
+      const slot = aiSlots[Math.floor(Math.random() * aiSlots.length)];
+      const dir = Math.random() > 0.5 ? 1 : -1;
+      executeSowing(slot, dir);
+      return;
+    }
+
+    // Vừa: ăn nhiều nhất ngay lượt này. Khó: trừ thêm nước ăn tốt nhất mà đối
+    // thủ có thể đáp trả (nhìn trước 1 nước).
+    let bestScore = -Infinity;
+    let bestMoves = [];
+    aiSlots.forEach(slot => {
+      [1, -1].forEach(dir => {
+        const { board: after, captured } = simulateOn(board, slot, dir);
+        const score = difficulty === 'hard' ? captured - bestOpponentCapture(after) : captured;
+        if (score > bestScore) {
+          bestScore = score;
+          bestMoves = [{ slot, dir }];
+        } else if (score === bestScore) {
+          bestMoves.push({ slot, dir });
+        }
+      });
+    });
+
+    const move = bestMoves[Math.floor(Math.random() * bestMoves.length)];
+    executeSowing(move.slot, move.dir);
   };
 
   const canInteractWithSlot = (idx) => {
@@ -446,6 +469,27 @@ export default function OAnQuan({ onBack, onlineSession }) {
               </div>
             )}
           </div>
+
+          {!isOnline && gameMode === 'pve' && (
+            <div className="difficulty-row">
+              <span className="difficulty-label">Độ khó máy</span>
+              <div className="seg-switch difficulty-switch">
+                {[
+                  { id: 'easy', label: 'Dễ' },
+                  { id: 'medium', label: 'Vừa' },
+                  { id: 'hard', label: 'Khó' },
+                ].map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => { playSound('click'); setDifficulty(d.id); handleReset(); }}
+                    className={`seg-btn ${difficulty === d.id ? 'active' : ''}`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className={`oaq-turn-banner ${winner ? 'is-over' : (!isWaitingOnline && isP1Turn ? 'turn-bottom' : 'turn-top')}`}>
             <span className="oaq-turn-dot" />

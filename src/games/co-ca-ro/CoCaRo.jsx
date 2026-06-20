@@ -11,6 +11,7 @@ export default function CoCaRo({ onBack, onlineSession }) {
   const [board, setBoard] = useState(() => onlineSession?.initialState?.board || createEmptyBoard());
   const [isXNext, setIsXNext] = useState(onlineSession?.initialState?.isXNext ?? true);
   const [gameMode, setGameMode] = useState('pve');
+  const [difficulty, setDifficulty] = useState('medium'); // 'easy' | 'medium' | 'hard'
   const [winner, setWinner] = useState(onlineSession?.initialState?.winner || null);
   const [winningLine, setWinningLine] = useState(onlineSession?.initialState?.winningLine || []);
   const [showRules, setShowRules] = useState(false);
@@ -171,31 +172,45 @@ export default function CoCaRo({ onBack, onlineSession }) {
     return null;
   };
 
+  // Per-difficulty AI tuning. Higher defenseWeight = blocks the player harder;
+  // blunderChance = probability the AI ignores its best move and plays a weaker
+  // (but still on-board) one, which is what makes "Dễ" feel beatable.
+  const AI_SETTINGS = {
+    easy: { defenseWeight: 0.8, blunderChance: 0.5 },
+    medium: { defenseWeight: 1.15, blunderChance: 0.0 },
+    hard: { defenseWeight: 1.6, blunderChance: 0.0 },
+  };
+
   const makeAIMove = () => {
-    let bestScore = -Infinity;
-    let bestMoves = [];
+    const settings = AI_SETTINGS[difficulty] || AI_SETTINGS.medium;
+    const scored = [];
 
     for (let r = 0; r < BOARD_SIZE; r++) {
       for (let c = 0; c < BOARD_SIZE; c++) {
         if (board[r][c] === null) {
           const attackScore = evaluateSpot(board, r, c, 'O');
           const defenseScore = evaluateSpot(board, r, c, 'X');
-          const totalScore = attackScore + defenseScore * 1.15;
-
-          if (totalScore > bestScore) {
-            bestScore = totalScore;
-            bestMoves = [{ row: r, col: c }];
-          } else if (totalScore === bestScore) {
-            bestMoves.push({ row: r, col: c });
-          }
+          scored.push({ row: r, col: c, score: attackScore + defenseScore * settings.defenseWeight });
         }
       }
     }
 
-    if (bestMoves.length > 0) {
-      const move = bestMoves[Math.floor(Math.random() * bestMoves.length)];
-      placePiece(move.row, move.col);
+    if (scored.length === 0) return;
+    scored.sort((a, b) => b.score - a.score);
+
+    // On easy, sometimes pick a deliberately sub-optimal move from the middle of
+    // the pack so the machine is fun to beat instead of unbeatable.
+    let pool;
+    if (settings.blunderChance > 0 && Math.random() < settings.blunderChance) {
+      const weak = scored.slice(Math.min(3, scored.length - 1), Math.min(12, scored.length));
+      pool = weak.length ? weak : scored;
+    } else {
+      const best = scored[0].score;
+      pool = scored.filter((m) => m.score === best);
     }
+
+    const move = pool[Math.floor(Math.random() * pool.length)];
+    placePiece(move.row, move.col);
   };
 
   const evaluateSpot = (currentBoard, row, col, player) => {
@@ -312,6 +327,27 @@ export default function CoCaRo({ onBack, onlineSession }) {
               </div>
             )}
           </div>
+
+          {!isOnline && gameMode === 'pve' && (
+            <div className="difficulty-row">
+              <span className="difficulty-label">Độ khó máy</span>
+              <div className="seg-switch difficulty-switch">
+                {[
+                  { id: 'easy', label: 'Dễ' },
+                  { id: 'medium', label: 'Vừa' },
+                  { id: 'hard', label: 'Khó' },
+                ].map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => { playSound('click'); setDifficulty(d.id); resetGame(); }}
+                    className={`seg-btn ${difficulty === d.id ? 'active' : ''}`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="caro-players">
             <div className={`caro-player-card ${turnActive && isXNext ? 'active' : ''}`}>
