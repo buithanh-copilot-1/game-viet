@@ -1228,6 +1228,20 @@ body {
   min-height: 18px;
 }
 
+.caro-timer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.caro-timer.low {
+  color: #ef4444;
+}
+
 .caro-status-line.is-over {
   font-size: 15px;
 }

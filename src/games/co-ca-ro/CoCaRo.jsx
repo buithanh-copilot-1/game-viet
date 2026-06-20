@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { playSound } from '../../utils/audio';
-import { RotateCcw, HelpCircle, Users, Cpu, ArrowLeft, Wifi } from 'lucide-react';
+import { RotateCcw, HelpCircle, Users, Cpu, ArrowLeft, Wifi, Timer } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { BOARD_SIZE, LEVELS, checkWinAt } from './aiEngine';
 
 const createEmptyBoard = () => Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
 const checkWin = checkWinAt;
+const TURN_TIME_LIMIT = 300; // 5 minutes per human turn, PvE only
+const formatTime = (seconds) => `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`;
 
 export default function CoCaRo({ onBack, onlineSession }) {
   const isOnline = Boolean(onlineSession);
@@ -15,6 +17,8 @@ export default function CoCaRo({ onBack, onlineSession }) {
   const [difficulty, setDifficulty] = useState(2); // level id, see LEVELS in aiEngine.js
   const [humanSymbol, setHumanSymbol] = useState(() => (Math.random() < 0.5 ? 'X' : 'O'));
   const [aiThinking, setAiThinking] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(TURN_TIME_LIMIT);
+  const [timedOut, setTimedOut] = useState(false);
   const [winner, setWinner] = useState(onlineSession?.initialState?.winner || null);
   const [winningLine, setWinningLine] = useState(onlineSession?.initialState?.winningLine || []);
   const [showRules, setShowRules] = useState(false);
@@ -92,6 +96,27 @@ export default function CoCaRo({ onBack, onlineSession }) {
       return () => clearTimeout(timer);
     }
   }, [isOnline, isXNext, gameMode, winner, aiSymbol]);
+
+  // 5-minute thinking clock per human turn, PvE only (the AI always answers in under
+  // its own time budget, so it never needs to be timed).
+  const isHumanTurnTimed = !isOnline && gameMode === 'pve' && !winner && currentSymbol === humanSymbol;
+
+  useEffect(() => {
+    if (!isHumanTurnTimed) return;
+    setTimeLeft(TURN_TIME_LIMIT);
+    const interval = setInterval(() => {
+      setTimeLeft((t) => Math.max(0, t - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isHumanTurnTimed]);
+
+  useEffect(() => {
+    if (isHumanTurnTimed && timeLeft === 0) {
+      setTimedOut(true);
+      setWinner(aiSymbol);
+      playSound('lose');
+    }
+  }, [timeLeft, isHumanTurnTimed, aiSymbol]);
 
   const onlineCurrentRole = isXNext ? 'P1' : 'P2';
   const isWaitingOnline = isOnline && onlineMeta.players.length < 2;
@@ -199,6 +224,8 @@ export default function CoCaRo({ onBack, onlineSession }) {
     setWinningLine([]);
     setLastMove(null);
     setHumanSymbol(Math.random() < 0.5 ? 'X' : 'O');
+    setTimeLeft(TURN_TIME_LIMIT);
+    setTimedOut(false);
   };
 
   const renderStatus = () => {
@@ -211,6 +238,8 @@ export default function CoCaRo({ onBack, onlineSession }) {
       let label;
       if (isOnline) {
         label = winner === (onlineMeta.playerRole === 'P1' ? 'X' : 'O') ? 'Bạn thắng!' : 'Đối thủ thắng!';
+      } else if (timedOut) {
+        label = `Hết giờ! Máy (${aiSymbol}) thắng!`;
       } else if (gameMode === 'pve') {
         label = winner === aiSymbol ? `Máy (${aiSymbol}) thắng!` : `Bạn (${humanSymbol}) thắng!`;
       } else {
@@ -280,6 +309,12 @@ export default function CoCaRo({ onBack, onlineSession }) {
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {isHumanTurnTimed && (
+            <div className={`caro-timer ${timeLeft <= 30 ? 'low' : ''}`}>
+              <Timer size={14} /> Bạn còn: {formatTime(timeLeft)}
             </div>
           )}
 
