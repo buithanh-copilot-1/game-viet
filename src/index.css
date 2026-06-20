@@ -80,12 +80,6 @@ body {
   50%       { transform: translateY(-6px); }
 }
 
-@keyframes bowl-reveal {
-  0%   { transform: translateY(0) scale(1); opacity: 1; }
-  60%  { transform: translateY(-18px) scale(1.06); opacity: 0.6; }
-  100% { transform: translateY(-30px) scale(0.9); opacity: 0; }
-}
-
 @keyframes bounce-subtle {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-5px); }
