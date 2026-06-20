@@ -4,12 +4,12 @@ import { Coins, RotateCcw, HelpCircle, ArrowLeft } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 const ANIMALS = [
-  { id: 'bau', name: 'Bầu', color: '#e0a96d', svgPath: 'M24 6c-2.5 0-4.5 2-4.5 4.5S21.5 16 23 18c-5 1.5-8 5.5-8 10.5 0 6 5 10.5 9 10.5s9-4.5 9-10.5c0-5-3-9-8-10.5 1.5-2 3.5-5 3.5-7.5C28.5 8 26.5 6 24 6zm0 4c.8 0 1.5.7 1.5 1.5S24.8 13 24 13s-1.5-.7-1.5-1.5S23.2 10 24 10zm0 11c3.9 0 6.5 3.5 6.5 7.5S27.9 36 24 36s-6.5-3.5-6.5-7.5 2.6-7.5 6.5-7.5z' },
-  { id: 'cua', name: 'Cua', color: '#ff5252', svgPath: 'M13 14c-1 0-2 1.5-2 3s1 3 2 3v3h-4c-2 0-3 2-3 4s2 3 4 3h1v3c0 2 2 3 4 3s4-1 4-3v-6h4v6c0 2 2 3 4 3s4-1 4-3v-3h1c2 0 4-1 4-3s-1-4-3-4h-4v-3c1 0 2-1.5 2-3s-1-3-2-3c-1.5 0-2.5 1-2.5 2.5v1.5H15.5v-1.5c0-1.5-1-2.5-2.5-2.5zm11 11c3.3 0 6 2.7 6 6s-2.7 6-6 6-6-2.7-6-6 2.7-6 6-6z' },
-  { id: 'tom', name: 'Tôm', color: '#ff793f', svgPath: 'M24 5c-3 0-5 3.5-5 8v2c0 2.5-1.5 4-4 4-2 0-3 1.5-3 3.5s2 3.5 4.5 3.5c4.5 0 6-3.5 6.5-6.5h2c.5 3 2 6.5 6.5 6.5 2.5 0 4.5-1.5 4.5-3.5s-1-3.5-3-3.5c-2.5 0-4-1.5-4-4v-2c0-4.5-2-8-5-8zm-2 5c0-.6.4-1 1-1s1 .4 1 1v1c0 .6-.4 1-1 1s-1-.4-1-1v-1zm5 0c0-.6.4-1 1-1s1 .4 1 1v1c0 .6-.4 1-1 1s-1-.4-1-1v-1zM24 28c-4 0-7 2.5-7 5.5s3 5.5 7 5.5 7-2.5 7-5.5-3-5.5-7-5.5z' },
-  { id: 'ca', name: 'Cá', color: '#34ace0', svgPath: 'M10 24c0-6.6 6-12 14-12 5.3 0 10 2.4 12.3 6l5.7-3.6v19.2l-5.7-3.6C34 33.6 29.3 36 24 36c-8 0-14-5.4-14-12zm7.5-3c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM28 26c-1.5 0-3-1-4-2s-.5-2 1-2 2 .5 3 1.5.5 2.5 0 2.5z' },
-  { id: 'ga', name: 'Gà', color: '#ffb142', svgPath: 'M25 6c-3.3 0-6 2.7-6 6 0 1.5.5 3 1.5 4L14 22c-2.2 0-4 1.8-4 4v8c0 1.1.9 2 2 2h2v4c0 1.1.9 2 2 2s2-.9 2-2v-4h8c2.2 0 4-1.8 4-4v-8l-6.5-6c1-.8 1.5-2 1.5-3.5 0-3.3-2.7-6-6-6zm-1.5 3.5c.6 0 1 .4 1 1s-.4 1-1 1-1-.4-1-1 .4-1 1-1zM18 29.5c.8 0 1.5.7 1.5 1.5s-.7 1.5-1.5 1.5-1.5-.7-1.5-1.5.7-1.5 1.5-1.5z' },
-  { id: 'nai', name: 'Nai', color: '#a5b1c2', svgPath: 'M18 6c-1 0-2 1-2 2v2c-2.5-1-5.5.5-6.5 3-.8 2 0 4.5 1.5 5.5v5.5c0 4.4 3.6 8 8 8h10c4.4 0 8-3.6 8-8V24c1.5-1 2.3-3.5 1.5-5.5-1-2.5-4-4-6.5-3v-2c0-1-1-2-2-2h-3l1.5-3.5c.4-1-.2-2.5-1.5-2.5s-2 1-2.5 2.5L25 10.5 23 6h-5zm0 12.5c.8 0 1.5.7 1.5 1.5S18.8 21.5 18 21.5s-1.5-.7-1.5-1.5.7-1.5 1.5-1.5zm12 0c.8 0 1.5.7 1.5 1.5s-.7 1.5-1.5 1.5-1.5-.7-1.5-1.5.7-1.5 1.5-1.5z' }
+  { id: 'bau', name: 'Bầu', color: '#3fa34d', img: '/bau-cua/bau.png' },
+  { id: 'cua', name: 'Cua', color: '#ff5252', img: '/bau-cua/cua.png' },
+  { id: 'tom', name: 'Tôm', color: '#ff793f', img: '/bau-cua/tom.png' },
+  { id: 'ca', name: 'Cá', color: '#34ace0', img: '/bau-cua/ca.png' },
+  { id: 'ga', name: 'Gà', color: '#ffb142', img: '/bau-cua/ga.png' },
+  { id: 'nai', name: 'Nai', color: '#c89b6b', img: '/bau-cua/nai.png' }
 ];
 
 const CHIPS = [10, 50, 100, 500];
@@ -214,9 +214,7 @@ export default function BauCua({ onBack }) {
                   const item = ANIMALS.find(a => a.id === dieId);
                   return (
                     <div key={idx} className="die-cube">
-                      <svg viewBox="0 0 48 48" className="die-svg">
-                        <path d={item?.svgPath} fill={item?.color} />
-                      </svg>
+                      <img src={item?.img || "/placeholder.svg"} alt={item?.name} className="die-img" />
                     </div>
                   );
                 })}
@@ -312,9 +310,7 @@ export default function BauCua({ onBack }) {
 
                 {/* Animal Icon on a coloured medallion */}
                 <div className="cell-icon-holder">
-                  <svg viewBox="0 0 48 48" style={{ width: '100%', height: '100%' }}>
-                    <path d={animal.svgPath} fill={animal.color} />
-                  </svg>
+                  <img src={animal.img || "/placeholder.svg"} alt={animal.name} className="cell-icon-img" />
                 </div>
 
                 {/* Name */}
@@ -335,9 +331,7 @@ export default function BauCua({ onBack }) {
                     const item = ANIMALS.find(a => a.id === dieId);
                     return (
                       <div key={subIdx} className="history-die-small">
-                        <svg viewBox="0 0 48 48" style={{ width: '14px', height: '14px' }}>
-                          <path d={item?.svgPath} fill={item?.color} />
-                        </svg>
+                        <img src={item?.img || "/placeholder.svg"} alt={item?.name} className="history-die-img" />
                       </div>
                     );
                   })}
