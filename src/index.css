@@ -1137,9 +1137,10 @@ body {
 /* Difficulty picker (AI games) */
 .difficulty-row {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 6px;
 }
 
 .difficulty-label {
@@ -1147,8 +1148,14 @@ body {
   color: var(--color-text-muted);
 }
 
+.difficulty-switch {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 .difficulty-switch .seg-btn {
-  padding: 5px 14px;
+  padding: 5px 10px;
+  font-size: 11px;
 }
 
 /* Status panel: mode switch, X-vs-O player cards, status line */
@@ -1272,7 +1279,7 @@ body {
 /* Ghost preview of the piece you'd place, shown on hover during your turn */
 .caro-ghost {
   position: absolute;
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 900;
   line-height: 1;
   opacity: 0;
@@ -1295,7 +1302,7 @@ body {
 }
 
 .caro-piece {
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 900;
   line-height: 1;
   animation: place-piece 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;

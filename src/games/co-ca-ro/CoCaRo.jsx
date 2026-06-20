@@ -2,16 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import { playSound } from '../../utils/audio';
 import { RotateCcw, HelpCircle, Users, Cpu, ArrowLeft, Wifi } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { BOARD_SIZE, LEVELS, checkWinAt } from './aiEngine';
 
-const BOARD_SIZE = 12;
 const createEmptyBoard = () => Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
+const checkWin = checkWinAt;
 
 export default function CoCaRo({ onBack, onlineSession }) {
   const isOnline = Boolean(onlineSession);
   const [board, setBoard] = useState(() => onlineSession?.initialState?.board || createEmptyBoard());
   const [isXNext, setIsXNext] = useState(onlineSession?.initialState?.isXNext ?? true);
   const [gameMode, setGameMode] = useState('pve');
-  const [difficulty, setDifficulty] = useState('medium'); // 'easy' | 'medium' | 'hard'
+  const [difficulty, setDifficulty] = useState(2); // level id, see LEVELS in aiEngine.js
+  const [aiThinking, setAiThinking] = useState(false);
   const [winner, setWinner] = useState(onlineSession?.initialState?.winner || null);
   const [winningLine, setWinningLine] = useState(onlineSession?.initialState?.winningLine || []);
   const [showRules, setShowRules] = useState(false);
@@ -23,6 +25,13 @@ export default function CoCaRo({ onBack, onlineSession }) {
   });
   const lastMoveKey = useRef('');
   const previousWinner = useRef(null);
+  const workerRef = useRef(null);
+
+  useEffect(() => {
+    const worker = new Worker(new URL('./aiWorker.js', import.meta.url), { type: 'module' });
+    workerRef.current = worker;
+    return () => worker.terminate();
+  }, []);
 
   useEffect(() => {
     if (!isOnline) return;
@@ -140,117 +149,29 @@ export default function CoCaRo({ onBack, onlineSession }) {
 
   const checkDraw = (currentBoard) => currentBoard.every(row => row.every(cell => cell !== null));
 
-  const checkWin = (currentBoard, row, col, player) => {
-    const directions = [
-      { dr: 0, dc: 1 },
-      { dr: 1, dc: 0 },
-      { dr: 1, dc: 1 },
-      { dr: 1, dc: -1 },
-    ];
-
-    for (const { dr, dc } of directions) {
-      const line = [{ row, col }];
-      let r = row + dr;
-      let c = col + dc;
-
-      while (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && currentBoard[r][c] === player) {
-        line.push({ row: r, col: c });
-        r += dr;
-        c += dc;
-      }
-
-      r = row - dr;
-      c = col - dc;
-      while (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && currentBoard[r][c] === player) {
-        line.push({ row: r, col: c });
-        r -= dr;
-        c -= dc;
-      }
-
-      if (line.length >= 5) return line;
-    }
-    return null;
-  };
-
-  // Per-difficulty AI tuning. Higher defenseWeight = blocks the player harder;
-  // blunderChance = probability the AI ignores its best move and plays a weaker
-  // (but still on-board) one, which is what makes "Dễ" feel beatable.
-  const AI_SETTINGS = {
-    easy: { defenseWeight: 0.8, blunderChance: 0.5 },
-    medium: { defenseWeight: 1.15, blunderChance: 0.0 },
-    hard: { defenseWeight: 1.6, blunderChance: 0.0 },
-  };
+  // AI moves run in a Web Worker (aiWorker.js) so the harder levels' minimax
+  // search never blocks the UI thread, even when it takes the better part of
+  // a second to think.
+  const aiRequestRef = useRef(0);
 
   const makeAIMove = () => {
-    const settings = AI_SETTINGS[difficulty] || AI_SETTINGS.medium;
-    const scored = [];
+    const worker = workerRef.current;
+    if (!worker) return;
 
-    for (let r = 0; r < BOARD_SIZE; r++) {
-      for (let c = 0; c < BOARD_SIZE; c++) {
-        if (board[r][c] === null) {
-          const attackScore = evaluateSpot(board, r, c, 'O');
-          const defenseScore = evaluateSpot(board, r, c, 'X');
-          scored.push({ row: r, col: c, score: attackScore + defenseScore * settings.defenseWeight });
-        }
-      }
-    }
+    aiRequestRef.current += 1;
+    const requestId = aiRequestRef.current;
+    setAiThinking(true);
 
-    if (scored.length === 0) return;
-    scored.sort((a, b) => b.score - a.score);
+    const handleMessage = (event) => {
+      if (event.data.requestId !== requestId) return;
+      worker.removeEventListener('message', handleMessage);
+      if (aiRequestRef.current !== requestId) return; // game was reset while thinking
+      setAiThinking(false);
+      if (event.data.move) placePiece(event.data.move.row, event.data.move.col);
+    };
 
-    // On easy, sometimes pick a deliberately sub-optimal move from the middle of
-    // the pack so the machine is fun to beat instead of unbeatable.
-    let pool;
-    if (settings.blunderChance > 0 && Math.random() < settings.blunderChance) {
-      const weak = scored.slice(Math.min(3, scored.length - 1), Math.min(12, scored.length));
-      pool = weak.length ? weak : scored;
-    } else {
-      const best = scored[0].score;
-      pool = scored.filter((m) => m.score === best);
-    }
-
-    const move = pool[Math.floor(Math.random() * pool.length)];
-    placePiece(move.row, move.col);
-  };
-
-  const evaluateSpot = (currentBoard, row, col, player) => {
-    const directions = [
-      { dr: 0, dc: 1 },
-      { dr: 1, dc: 0 },
-      { dr: 1, dc: 1 },
-      { dr: 1, dc: -1 },
-    ];
-    let totalScore = 0;
-
-    for (const { dr, dc } of directions) {
-      let count = 0;
-      let openEnds = 0;
-      let r = row + dr;
-      let c = col + dc;
-
-      while (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && currentBoard[r][c] === player) {
-        count++;
-        r += dr;
-        c += dc;
-      }
-      if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && currentBoard[r][c] === null) openEnds++;
-
-      r = row - dr;
-      c = col - dc;
-      while (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && currentBoard[r][c] === player) {
-        count++;
-        r -= dr;
-        c -= dc;
-      }
-      if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && currentBoard[r][c] === null) openEnds++;
-
-      if (count >= 4) totalScore += 10000;
-      else if (count === 3) totalScore += openEnds === 2 ? 1200 : (openEnds === 1 ? 300 : 0);
-      else if (count === 2) totalScore += openEnds === 2 ? 150 : (openEnds === 1 ? 30 : 0);
-      else if (count === 1) totalScore += openEnds === 2 ? 10 : (openEnds === 1 ? 2 : 0);
-    }
-
-    return totalScore;
+    worker.addEventListener('message', handleMessage);
+    worker.postMessage({ board, level: difficulty, aiPlayer: 'O', humanPlayer: 'X', requestId });
   };
 
   const isCellInWinningLine = (r, c) => winningLine.some(cell => cell.row === r && cell.col === c);
@@ -264,6 +185,8 @@ export default function CoCaRo({ onBack, onlineSession }) {
       return;
     }
 
+    aiRequestRef.current += 1; // invalidate any AI move still being computed
+    setAiThinking(false);
     setBoard(createEmptyBoard());
     setIsXNext(true);
     setWinner(null);
@@ -274,6 +197,9 @@ export default function CoCaRo({ onBack, onlineSession }) {
   const renderStatus = () => {
     if (isWaitingOnline) return <span style={{ color: 'var(--color-gold)' }}>Chờ người chơi thứ 2...</span>;
     if (winner === 'Draw') return <span style={{ color: 'var(--color-gold)' }}>Hòa nhau!</span>;
+    if (!isOnline && gameMode === 'pve' && !isXNext && aiThinking) {
+      return <span style={{ color: 'var(--color-text-secondary)' }}>Máy đang suy nghĩ...</span>;
+    }
     if (winner) {
       const label = isOnline
         ? (winner === (onlineMeta.playerRole === 'P1' ? 'X' : 'O') ? 'Bạn thắng!' : 'Đối thủ thắng!')
@@ -332,17 +258,13 @@ export default function CoCaRo({ onBack, onlineSession }) {
             <div className="difficulty-row">
               <span className="difficulty-label">Độ khó máy</span>
               <div className="seg-switch difficulty-switch">
-                {[
-                  { id: 'easy', label: 'Dễ' },
-                  { id: 'medium', label: 'Vừa' },
-                  { id: 'hard', label: 'Khó' },
-                ].map((d) => (
+                {LEVELS.map((lvl) => (
                   <button
-                    key={d.id}
-                    onClick={() => { playSound('click'); setDifficulty(d.id); resetGame(); }}
-                    className={`seg-btn ${difficulty === d.id ? 'active' : ''}`}
+                    key={lvl.id}
+                    onClick={() => { playSound('click'); setDifficulty(lvl.id); resetGame(); }}
+                    className={`seg-btn ${difficulty === lvl.id ? 'active' : ''}`}
                   >
-                    {d.label}
+                    {lvl.label}
                   </button>
                 ))}
               </div>
@@ -405,7 +327,7 @@ export default function CoCaRo({ onBack, onlineSession }) {
           <div className="modal-card">
             <h3 className="modal-header">Luật chơi Cờ Ca Rô</h3>
             <div className="modal-body">
-              <p>1. Trò chơi diễn ra trên bàn cờ gỗ 12 x 12.</p>
+              <p>1. Trò chơi diễn ra trên bàn cờ gỗ 15 x 15.</p>
               <p>2. Một người chơi cầm quân <strong>X</strong>, người kia cầm quân <strong>O</strong>.</p>
               <p>3. Người chơi thay phiên nhau đặt quân vào một ô trống.</p>
               <p>4. Tạo thành một hàng liên tiếp gồm 5 quân theo hàng dọc, hàng ngang hoặc đường chéo để thắng.</p>

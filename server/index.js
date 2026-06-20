@@ -6,7 +6,7 @@ import { Server } from 'socket.io';
 
 const PORT = Number(process.env.PORT || 3000);
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || '*';
-const CARO_BOARD_SIZE = 12;
+const CARO_BOARD_SIZE = 15;
 // How long a disconnected player's seat is held open for a reconnect.
 const RECONNECT_GRACE_MS = 20000;
 
