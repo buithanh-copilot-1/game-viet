@@ -312,9 +312,18 @@ export default function CoCaRo({ onBack, onlineSession }) {
             </div>
           )}
 
-          {isHumanTurnTimed && (
-            <div className={`caro-timer ${timeLeft <= 30 ? 'low' : ''}`}>
-              <Timer size={14} /> Bạn còn: {formatTime(timeLeft)}
+          {!isOnline && gameMode === 'pve' && !winner && (
+            <div
+              className={`caro-timer ${isHumanTurnTimed && timeLeft <= 30 ? 'low' : ''} ${!isHumanTurnTimed ? 'inactive' : ''}`}
+              aria-hidden={!isHumanTurnTimed}
+            >
+              {isHumanTurnTimed ? (
+                <>
+                  <Timer size={14} /> Bạn còn: {formatTime(timeLeft)}
+                </>
+              ) : (
+                <span className="caro-timer-placeholder">Lượt máy</span>
+              )}
             </div>
           )}
 
