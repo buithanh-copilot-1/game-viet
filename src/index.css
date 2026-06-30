@@ -1226,9 +1226,18 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  min-height: 20px;
   font-size: 12px;
   font-weight: 700;
   color: var(--color-text-secondary);
+}
+
+.caro-timer.inactive {
+  color: var(--color-text-muted);
+}
+
+.caro-timer-placeholder {
+  font-weight: 600;
 }
 
 .caro-timer.low {
