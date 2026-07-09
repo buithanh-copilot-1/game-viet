@@ -1,357 +1,282 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { playSound } from '../../utils/audio';
-import { Coins, RotateCcw, HelpCircle, ArrowLeft } from 'lucide-react';
+import { RotateCcw, HelpCircle, ArrowLeft } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { ANIMALS } from './animals';
-import { AnimalIcon } from './AnimalIcon';
-import ShakerBowl from './ShakerBowl';
 
-const CHIPS = [10, 50, 100, 500];
+const CHIPS = [
+  { value: 10,  label: '10',  dataVal: '10'  },
+  { value: 50,  label: '50',  dataVal: '50'  },
+  { value: 100, label: '100', dataVal: '100' },
+  { value: 500, label: '500', dataVal: '500' },
+];
 
 export default function BauCua({ onBack }) {
   const [coins, setCoins] = useState(() => {
     const saved = localStorage.getItem('bau_cua_coins');
     return saved ? parseInt(saved, 10) : 1000;
   });
-
-  const [bets, setBets] = useState({ bau: 0, cua: 0, tom: 0, ca: 0, ga: 0, nai: 0 });
-  const [selectedChip, setSelectedChip] = useState(10);
-  const [dice, setDice] = useState(['bau', 'cua', 'tom']);
-  const [rolling, setRolling] = useState(false);
-  const [bowlClosed, setBowlClosed] = useState(false);
-  const [hasShaken, setHasShaken] = useState(false);
-  const [history, setHistory] = useState(() => {
+  const [bets, setBets]           = useState({});
+  const [selectedChip, setSelectedChip] = useState(50);
+  const [dice, setDice]           = useState(['bau', 'cua', 'tom']);
+  const [rolling, setRolling]     = useState(false);
+  const [resultLine, setResultLine] = useState({ text: 'Chọn con vật rồi đặt cược!', cls: '' });
+  const [lastResult, setLastResult] = useState(null);
+  const [history, setHistory]     = useState(() => {
     const saved = localStorage.getItem('bau_cua_history');
     return saved ? JSON.parse(saved) : [];
   });
   const [showRules, setShowRules] = useState(false);
-  const [outcome, setOutcome] = useState(null);
-  const [lastResult, setLastResult] = useState(null);
+  const save = (newCoins, newHistory) => {
+    localStorage.setItem('bau_cua_coins', String(newCoins));
+    if (newHistory) localStorage.setItem('bau_cua_history', JSON.stringify(newHistory));
+  };
 
-  useEffect(() => {
-    localStorage.setItem('bau_cua_coins', coins.toString());
-  }, [coins]);
-
-  useEffect(() => {
-    localStorage.setItem('bau_cua_history', JSON.stringify(history));
-  }, [history]);
-
-  const totalBetAmount = Object.values(bets).reduce((a, b) => a + b, 0);
+  const totalBet = Object.values(bets).reduce((a, b) => a + b, 0);
 
   const placeBet = (id) => {
     if (rolling) return;
-    if (bowlClosed && hasShaken) return; // Cannot place bet after shaking but before opening
-
     if (coins < selectedChip) {
       playSound('lose');
-      alert("Bạn không đủ xu để đặt cược này!");
+      setResultLine({ text: 'Không đủ xu cho mức cược này.', cls: 'lose' });
       return;
     }
-
     playSound('click');
-    // Starting a fresh round of betting clears the previous reveal.
-    if (lastResult) setLastResult(null);
-    if (outcome) setOutcome(null);
-    setBets(prev => ({ ...prev, [id]: prev[id] + selectedChip }));
-    setCoins(prev => prev - selectedChip);
+    setLastResult(null);
+    setBets(prev => ({ ...prev, [id]: (prev[id] || 0) + selectedChip }));
+    setCoins(prev => {
+      const next = prev - selectedChip;
+      save(next);
+      return next;
+    });
   };
 
   const clearBets = () => {
-    if (rolling || (bowlClosed && hasShaken)) return;
+    if (rolling) return;
     playSound('click');
-    setCoins(prev => prev + totalBetAmount);
-    setBets({ bau: 0, cua: 0, tom: 0, ca: 0, ga: 0, nai: 0 });
+    setCoins(prev => {
+      const next = prev + totalBet;
+      save(next);
+      return next;
+    });
+    setBets({});
+    setLastResult(null);
+    setResultLine({ text: 'Đã hoàn lại toàn bộ cược.', cls: '' });
   };
 
-  const startShake = () => {
+  const shake = () => {
     if (rolling) return;
-    if (totalBetAmount === 0 && !bowlClosed) {
-      alert("Vui lòng đặt cược trước khi lắc!");
+    if (totalBet === 0) {
+      setResultLine({ text: 'Hãy đặt ít nhất một cược trước khi lắc.', cls: '' });
       return;
     }
-
     playSound('click');
     setRolling(true);
-    setBowlClosed(true);
-    setHasShaken(true);
-    setOutcome(null);
     setLastResult(null);
+    setResultLine({ text: 'Đang lắc…', cls: '' });
 
-    // Play rolling loop sound synthetically
-    let shakeCount = 0;
-    const shakeInterval = setInterval(() => {
+    const spinInterval = setInterval(() => {
       playSound('roll');
-      shakeCount++;
-      if (shakeCount > 8) clearInterval(shakeInterval);
-    }, 120);
+      setDice([
+        ANIMALS[Math.floor(Math.random() * 6)].id,
+        ANIMALS[Math.floor(Math.random() * 6)].id,
+        ANIMALS[Math.floor(Math.random() * 6)].id,
+      ]);
+    }, 100);
 
     setTimeout(() => {
-      // Pick random results
-      const results = [
-        ANIMALS[Math.floor(Math.random() * 6)].id,
-        ANIMALS[Math.floor(Math.random() * 6)].id,
-        ANIMALS[Math.floor(Math.random() * 6)].id
-      ];
-      setDice(results);
+      clearInterval(spinInterval);
+      const roll = Array.from({ length: 3 }, () => ANIMALS[Math.floor(Math.random() * 6)].id);
+      setDice(roll);
       setRolling(false);
-    }, 1500);
+      setLastResult(roll);
+      settle(roll);
+    }, 1200);
   };
 
-  const openBowl = () => {
-    if (rolling || !bowlClosed) return;
-
-    setBowlClosed(false);
-    
-    // Calculate Payouts
-    let wonAmount = 0;
-    let refundAmount = 0;
-    
-    // Count occurrences of each symbol
+  const settle = (roll) => {
     const counts = {};
-    dice.forEach(d => counts[d] = (counts[d] || 0) + 1);
+    roll.forEach(k => { counts[k] = (counts[k] || 0) + 1; });
 
-    Object.keys(bets).forEach(id => {
-      const betAmount = bets[id];
-      if (betAmount > 0) {
-        if (counts[id]) {
-          // Player won: gets back the bet plus (occurrences * betAmount)
-          wonAmount += betAmount * counts[id];
-          refundAmount += betAmount;
-        }
-      }
+    let winnings = 0;
+    Object.entries(bets).forEach(([id, stake]) => {
+      if (counts[id]) winnings += stake + stake * counts[id];
     });
 
-    const netResult = wonAmount + refundAmount;
-    if (netResult > 0) setCoins(prev => prev + netResult);
+    const currentBets = { ...bets };
+    setBets({});
 
-    // Net change for the player = payout received minus the stake already taken.
-    const profit = netResult - totalBetAmount;
-    if (totalBetAmount > 0) {
-      if (profit > 0) {
-        setOutcome({ won: true, text: `Chúc mừng! Bạn thắng +${profit.toLocaleString()} xu` });
-        playSound('win');
-        confetti({ particleCount: 50, spread: 40, origin: { y: 0.8 } });
-      } else if (profit === 0) {
-        setOutcome({ won: true, text: 'Hòa vốn — bạn nhận lại tiền cược.' });
-        playSound('win');
-      } else {
-        setOutcome({ won: false, text: `Rất tiếc! Bạn thua ${profit.toLocaleString()} xu` });
-        playSound('lose');
-      }
+    setCoins(prev => {
+      const next = prev + winnings;
+      const newHistory = [roll, ...history.slice(0, 9)];
+      setHistory(newHistory);
+      save(next, newHistory);
+      return next;
+    });
+
+    const names = roll.map(k => ANIMALS.find(a => a.id === k).name).join(' · ');
+    const hadBets = Object.values(currentBets).some(v => v > 0);
+    if (winnings > 0) {
+      const profit = winnings - Object.values(currentBets).reduce((a, b) => a + b, 0);
+      const msg = profit > 0
+        ? `${names} — Thắng +${profit.toLocaleString()} xu! 🎉`
+        : `${names} — Hòa vốn!`;
+      setResultLine({ text: msg, cls: 'win' });
+      playSound('win');
+      confetti({ particleCount: 50, spread: 40, origin: { y: 0.8 } });
+    } else if (hadBets) {
+      setResultLine({ text: `${names} — Chúc may mắn lần sau.`, cls: 'lose' });
+      playSound('lose');
     }
-
-    // Remember the revealed dice so winning animals stay highlighted on the board
-    setLastResult(dice);
-
-    // Add to history
-    setHistory(prev => [dice, ...prev.slice(0, 9)]);
-    
-    // Reset state
-    setBets({ bau: 0, cua: 0, tom: 0, ca: 0, ga: 0, nai: 0 });
-    setHasShaken(false);
   };
 
-  const handleResetCoins = () => {
+  const handleReset = () => {
     playSound('click');
-    setCoins(1000);
+    const next = 1000;
+    setBets({});
+    setLastResult(null);
+    setHistory([]);
+    setResultLine({ text: 'Ví đã được nạp lại. Chúc may mắn!', cls: '' });
+    setCoins(next);
+    save(next, []);
   };
 
   return (
     <div className="game-container">
-      {/* Header */}
       <div className="game-top-bar">
-        <button onClick={onBack} className="btn-back">
-          <ArrowLeft size={18} />
-        </button>
+        <button onClick={onBack} className="btn-back"><ArrowLeft size={18} /></button>
         <h1 className="game-title">Bầu Cua Tôm Cá</h1>
         <button onClick={() => setShowRules(true)} className="btn-icon-toggle">
           <HelpCircle size={18} />
         </button>
       </div>
 
-      {/* Main Board Layout */}
       <div className="bau-cua-main-area">
-        
-        {/* Wallet & Bet summary */}
-        <div className="widget-panel bc-wallet-panel">
-          <div className="bc-stat bc-stat-coins">
-            <div className="bc-stat-icon"><Coins size={18} /></div>
-            <div className="bc-stat-text">
-              <div className="bc-stat-label">Số xu của bạn</div>
-              <div className="bc-stat-value">{coins.toLocaleString()}</div>
-            </div>
+
+        {/* Purse */}
+        <div className="bc-purse">
+          <div>
+            <div className="bc-purse-label">Số dư</div>
+            <div className="bc-purse-amount">{coins.toLocaleString()} xu</div>
           </div>
-          <div className="bc-stat bc-stat-bet">
-            <div className="bc-stat-text">
-              <div className="bc-stat-label">Tổng đang cược</div>
-              <div className="bc-stat-value bc-bet-value">{totalBetAmount.toLocaleString()}</div>
+          {totalBet > 0 && (
+            <div style={{ textAlign: 'right' }}>
+              <div className="bc-purse-label">Đang cược</div>
+              <div className="bc-purse-amount" style={{ color: '#7e1522' }}>{totalBet.toLocaleString()} xu</div>
             </div>
-          </div>
+          )}
           {coins === 0 && (
-            <button
-              onClick={handleResetCoins}
-              className="btn-secondary-action bc-refill-btn"
-            >
-              <RotateCcw size={12} style={{ marginRight: '4px', display: 'inline' }} /> Hồi xu (1000)
+            <button onClick={handleReset} className="bc-refill-btn">
+              <RotateCcw size={12} style={{ marginRight: 4 }} /> Nạp lại
             </button>
           )}
         </div>
 
-        {/* Shaker (Lid & Plate / Bowl) */}
-        <div className="widget-panel shaker-box">
-          <div className="shaker-plate" style={{ animationName: rolling ? 'shake' : 'none', animationDuration: '0.6s', animationIterationCount: 'infinite' }}>
-            
-            {/* Opened state: Dice are visible */}
-            {!bowlClosed && (
-              <div className="shaker-dice-holder">
-                {dice.map((dieId, idx) => {
-                  const item = ANIMALS.find(a => a.id === dieId);
-                  return (
-                    <div key={idx} className="die-cube">
-                      <AnimalIcon id={dieId} color={item?.color} className="die-svg" />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+        {/* Lacquer tray: grid + dice */}
+        <div className="bc-tray">
 
-            {/* Closed Bowl / Lid */}
-            {bowlClosed && (
-              <div className="shaker-lid">
-                <ShakerBowl />
-                <span className="lid-text">Đang Úp</span>
-              </div>
-            )}
+          {/* 3×2 betting grid */}
+          <div className="bau-cua-grid">
+            {ANIMALS.map(animal => {
+              const betAmt = bets[animal.id] || 0;
+              const resultCount = lastResult ? lastResult.filter(d => d === animal.id).length : 0;
+              return (
+                <button
+                  key={animal.id}
+                  onClick={() => placeBet(animal.id)}
+                  disabled={rolling}
+                  className={`bau-cua-cell ${betAmt > 0 ? 'active-bet' : ''} ${resultCount > 0 ? 'result-win' : ''}`}
+                >
+                  {betAmt > 0 && <div className="bet-badge">{betAmt.toLocaleString()}</div>}
+                  {resultCount > 0 && <div className="result-badge">x{resultCount}</div>}
+                  <span className="cell-emoji">{animal.emoji}</span>
+                  <span className="cell-label">{animal.name}</span>
+                  <span className={`cell-bet-line ${betAmt === 0 ? 'empty' : ''}`}>
+                    {betAmt > 0 ? `${betAmt.toLocaleString()} xu` : 'Đặt cược'}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Action buttons */}
-          <div style={{ display: 'flex', gap: '12px', marginTop: '14px', width: '100%', justifyContent: 'center' }}>
-            {(!bowlClosed || rolling) ? (
-              <button 
-                onClick={startShake} 
-                disabled={rolling}
-                className="btn-primary-action"
-                style={{ maxWidth: '160px' }}
-              >
-                {rolling ? 'Đang Lắc...' : 'Xốc Bát'}
-              </button>
-            ) : (
-              <button 
-                onClick={openBowl}
-                className="btn-primary-action"
-                style={{ maxWidth: '160px', background: 'linear-gradient(135deg, #cfa12b 0%, #99741a 100%)', color: '#0a0505' }}
-              >
-                Mở Bát
-              </button>
-            )}
-          </div>
-
-          {/* Win/Loss message popup */}
-          {outcome && (
-            <div className={`win-loss-text-overlay ${outcome.won ? 'is-win' : 'is-lose'}`}>
-              {outcome.text}
-            </div>
-          )}
-        </div>
-
-        {/* Chip Selection (Bets chip size) */}
-        <div className="widget-panel chip-bar-panel">
-          <span className="chip-bar-label">Chọn cược:</span>
-          <div className="chip-container">
-            {CHIPS.map(val => (
-              <button
-                key={val}
-                onClick={() => { playSound('click'); setSelectedChip(val); }}
-                className={`chip-button ${selectedChip === val ? 'selected' : ''}`}
-              >
-                {val}
-              </button>
-            ))}
-          </div>
-          {totalBetAmount > 0 && (
-            <button onClick={clearBets} className="btn-secondary-action">
-              Hủy Cược
-            </button>
-          )}
-        </div>
-
-        {/* 6 Grid Betting Table */}
-        <div className="bau-cua-grid">
-          {ANIMALS.map(animal => {
-            const hasBet = bets[animal.id] > 0;
-            const resultCount = lastResult ? lastResult.filter(d => d === animal.id).length : 0;
-            const isWinningResult = resultCount > 0;
-            return (
-              <button
-                key={animal.id}
-                onClick={() => placeBet(animal.id)}
-                disabled={rolling || (bowlClosed && hasShaken)}
-                className={`bau-cua-cell ${hasBet ? 'active-bet' : ''} ${isWinningResult ? 'result-win' : ''}`}
-                style={{ '--animal-color': animal.color }}
-              >
-                {/* Bet quantity display */}
-                {hasBet && (
-                  <div className="bet-badge">
-                    {bets[animal.id]}
+          {/* Dice + shake */}
+          <div className="bc-bowl-area">
+            <div className="bc-dice-row">
+              {dice.map((id, i) => {
+                const animal = ANIMALS.find(a => a.id === id);
+                return (
+                  <div key={i} className={`bc-die ${rolling ? 'rolling' : ''}`}>
+                    {animal?.emoji}
                   </div>
-                )}
+                );
+              })}
+            </div>
 
-                {/* Result multiplier after the bowl opens */}
-                {isWinningResult && (
-                  <div className="result-badge">x{resultCount}</div>
-                )}
+            <button className="bc-shake-btn" onClick={shake} disabled={rolling}>
+              {rolling ? 'Đang lắc…' : 'Lắc xúc xắc 🎲'}
+            </button>
 
-                {/* Animal Icon on a coloured medallion */}
-                <div className="cell-icon-holder">
-                  <AnimalIcon id={animal.id} color={animal.color} style={{ width: '100%', height: '100%' }} />
-                </div>
-
-                {/* Name */}
-                <span className="cell-label">{animal.name}</span>
-              </button>
-            );
-          })}
+            <div className={`bc-result-line ${resultLine.cls}`}>{resultLine.text}</div>
+          </div>
         </div>
 
-        {/* History / Statistical Rolls */}
+        {/* Chip selector */}
+        <div className="bc-chip-row">
+          {CHIPS.map(c => (
+            <button
+              key={c.value}
+              data-val={c.dataVal}
+              onClick={() => { playSound('click'); setSelectedChip(c.value); }}
+              className={`bc-chip ${selectedChip === c.value ? 'selected' : ''}`}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Controls */}
+        <div className="bc-controls-row">
+          {totalBet > 0 && (
+            <button onClick={clearBets} className="bc-ghost-btn">Xóa cược</button>
+          )}
+          {coins <= 0 && (
+            <button onClick={handleReset} className="bc-ghost-btn">
+              <RotateCcw size={12} style={{ marginRight: 4 }} />Nạp lại 1000 xu
+            </button>
+          )}
+        </div>
+
+        {/* History */}
         {history.length > 0 && (
-          <div className="widget-panel history-panel">
-            <span className="history-title">Lịch sử lắc:</span>
-            <div className="history-row">
-              {history.map((roll, idx) => (
-                <div key={idx} className="history-item">
-                  {roll.map((dieId, subIdx) => {
-                    const item = ANIMALS.find(a => a.id === dieId);
-                    return (
-                      <div key={subIdx} className="history-die-small">
-                        <AnimalIcon id={dieId} color={item?.color} style={{ width: '14px', height: '14px' }} />
-                      </div>
-                    );
-                  })}
-                </div>
+          <div className="bc-history">
+            <div className="bc-history-title">Kết quả gần đây</div>
+            <div className="bc-history-list">
+              {history.map((roll, i) => (
+                <span
+                  key={i}
+                  className="bc-history-roll"
+                  title={roll.map(k => ANIMALS.find(a => a.id === k).name).join(' · ')}
+                >
+                  {roll.map(k => ANIMALS.find(a => a.id === k).emoji).join('')}
+                </span>
               ))}
             </div>
           </div>
         )}
       </div>
 
-      {/* Rules Modal Overlay */}
       {showRules && (
         <div className="modal-backdrop">
           <div className="modal-card">
             <h3 className="modal-header">Luật chơi Bầu Cua</h3>
             <div className="modal-body">
-              <p>1. Chọn chip cược ở thanh công cụ dưới bàn cờ.</p>
-              <p>2. Chạm vào 6 ô linh vật để đặt cược (có thể đặt nhiều ô).</p>
-              <p>3. Nhấn <strong>"Xốc Bát"</strong> để úp bát và xốc đĩa xúc xắc.</p>
-              <p>4. Nhấn <strong>"Mở Bát"</strong> để mở kết quả và đối chiếu cược.</p>
-              <p>5. Trúng linh vật nào nhận lại tiền cược + tiền thắng nhân với số lượng xúc xắc ra ô đó (x1, x2, x3).</p>
+              <p>1. Chọn mức cược ở hàng chip bên dưới.</p>
+              <p>2. Nhấn vào ô linh vật để đặt cược (có thể đặt nhiều ô).</p>
+              <p>3. Nhấn <strong>"Lắc xúc xắc"</strong> để quay 3 con xúc xắc.</p>
+              <p>4. Trúng linh vật → nhận lại tiền cược + thưởng nhân số lần xuất hiện (x1, x2, x3).</p>
             </div>
             <div className="modal-footer">
-              <button 
-                onClick={() => { playSound('click'); setShowRules(false); }}
-                className="btn-primary-action"
-              >
+              <button onClick={() => { playSound('click'); setShowRules(false); }} className="btn-primary-action">
                 Đồng Ý
               </button>
             </div>
