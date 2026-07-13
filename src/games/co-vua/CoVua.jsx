@@ -1,0 +1,382 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { playSound } from '../../utils/audio';
+import { ArrowLeft, HelpCircle, RotateCcw, FlipHorizontal2, Timer } from 'lucide-react';
+import confetti from 'canvas-confetti';
+import {
+  createInitialBoard, getLegalMoves, getAllLegalMoves,
+  isInCheck, isWhitePiece, applyMoveToState, LEVELS,
+} from './chessEngine';
+
+const UNICODE = {
+  K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',
+  k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟',
+};
+const PIECE_VALUE = { p:1, n:3, b:3, r:5, q:9, k:0 };
+const INIT_CASTLING = { wK:true, wQ:true, bK:true, bQ:true };
+const TURN_LIMIT = 300; // 5 minutes per move in PvE
+
+const formatTime = s => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
+
+function calcCaptures(board) {
+  const init = { p:8, n:2, b:2, r:2, q:1 };
+  const onW = {}, onB = {};
+  for (let r=0; r<8; r++) for (let c=0; c<8; c++) {
+    const p = board[r][c];
+    if (p && p.toUpperCase() !== 'K') {
+      const t = p.toLowerCase();
+      if (isWhitePiece(p)) onW[t] = (onW[t]||0)+1;
+      else onB[t] = (onB[t]||0)+1;
+    }
+  }
+  let capByBlack='', capByWhite='', advW=0, advB=0;
+  for (const t of ['q','r','b','n','p']) {
+    const v = PIECE_VALUE[t];
+    const wCap = init[t]-(onW[t]||0);
+    const bCap = init[t]-(onB[t]||0);
+    advW += bCap*v; advB += wCap*v;
+    capByBlack += UNICODE[t.toUpperCase()].repeat(wCap);
+    capByWhite += UNICODE[t].repeat(bCap);
+  }
+  return { capByBlack, capByWhite, advW, advB };
+}
+
+export default function CoVua({ onBack }) {
+  const [board, setBoard] = useState(createInitialBoard);
+  const [whiteToMove, setWhiteToMove] = useState(true);
+  const [epTarget, setEpTarget] = useState(null);
+  const [castling, setCastling] = useState(INIT_CASTLING);
+  const [gameStatus, setGameStatus] = useState('play'); // 'play'|'white_wins'|'black_wins'|'stalemate'
+
+  const [selected, setSelected] = useState(null);
+  const [legalCache, setLegalCache] = useState([]);
+  const [lastFrom, setLastFrom] = useState(null);
+  const [lastTo, setLastTo] = useState(null);
+
+  const [flipped, setFlipped] = useState(false);
+  const [difficulty, setDifficulty] = useState(2);
+  const [gameMode, setGameMode] = useState('pve');
+
+  const [scoreW, setScoreW] = useState(0);
+  const [scoreB, setScoreB] = useState(0);
+  const [aiThinking, setAiThinking] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(TURN_LIMIT);
+
+  const stateRef = useRef(null);
+  const workerRef = useRef(null);
+  const reqId = useRef(0);
+
+  // Keep stateRef in sync
+  useEffect(() => {
+    stateRef.current = { board, whiteToMove, epTarget, castling };
+  }, [board, whiteToMove, epTarget, castling]);
+
+  // AI worker
+  useEffect(() => {
+    const w = new Worker(new URL('./chessWorker.js', import.meta.url), { type:'module' });
+    workerRef.current = w;
+    w.onmessage = ({ data }) => {
+      if (data.requestId !== reqId.current) return;
+      if (data.move && stateRef.current) {
+        const { fromR, fromC, ...mv } = data.move;
+        commitMove(stateRef.current, fromR, fromC, mv);
+      }
+      setAiThinking(false);
+    };
+    return () => w.terminate();
+  }, []);
+
+  // Timer: only during human's turn in PvE
+  const isHumanTurn = gameMode === 'pve' && whiteToMove && gameStatus === 'play';
+  useEffect(() => {
+    if (!isHumanTurn) return;
+    setTimeLeft(TURN_LIMIT);
+    const id = setInterval(() => setTimeLeft(t => Math.max(0, t-1)), 1000);
+    return () => clearInterval(id);
+  }, [isHumanTurn]);
+
+  useEffect(() => {
+    if (isHumanTurn && timeLeft === 0) {
+      setTimedOut(true);
+      setGameStatus('black_wins');
+      setScoreB(s => s+1);
+      playSound('lose');
+    }
+  }, [timeLeft, isHumanTurn]);
+
+  // Trigger AI move
+  useEffect(() => {
+    if (gameStatus !== 'play') return;
+    const aiShouldMove = gameMode === 'pve' && !whiteToMove;
+    if (!aiShouldMove) return;
+    const cur = stateRef.current;
+    setAiThinking(true);
+    const id = ++reqId.current;
+    setTimeout(() => {
+      workerRef.current?.postMessage({ state: cur, level: difficulty, requestId: id });
+    }, 300);
+  }, [whiteToMove, gameMode, gameStatus, difficulty]);
+
+  const commitMove = useCallback((state, fromR, fromC, mv) => {
+    const newState = applyMoveToState(state, fromR, fromC, mv);
+    setBoard(newState.board);
+    setWhiteToMove(newState.whiteToMove);
+    setEpTarget(newState.epTarget);
+    setCastling(newState.castling);
+    setLastFrom({ r:fromR, c:fromC });
+    setLastTo({ r: mv.r, c: mv.c });
+    setSelected(null);
+    setLegalCache([]);
+
+    // Check game end
+    const moves = getAllLegalMoves(newState.board, newState.whiteToMove, newState.epTarget, newState.castling);
+    if (!moves.length) {
+      if (isInCheck(newState.board, newState.whiteToMove)) {
+        const winner = newState.whiteToMove ? 'black_wins' : 'white_wins';
+        setGameStatus(winner);
+        if (winner === 'white_wins') { setScoreW(s=>s+1); playSound('win'); confetti({ particleCount:60, spread:50, origin:{y:0.7} }); }
+        else { setScoreB(s=>s+1); playSound('lose'); }
+      } else {
+        setGameStatus('stalemate');
+      }
+    } else {
+      playSound(isWhitePiece(state.board[fromR][fromC]) ? 'click' : 'click');
+    }
+  }, []);
+
+  const handleSquareClick = useCallback((r, c) => {
+    if (gameStatus !== 'play' || aiThinking) return;
+    if (gameMode === 'pve' && !whiteToMove) return;
+
+    const p = board[r][c];
+    const humanPiece = gameMode === 'pve' ? isWhitePiece(p) : (whiteToMove ? isWhitePiece(p) : (!isWhitePiece(p) && !!p));
+
+    if (selected) {
+      const mv = legalCache.find(m => {
+        const tc = m.castle ? (m.castle==='K'?6:2) : m.c;
+        const tr = m.castle ? (whiteToMove?7:0) : m.r;
+        return tr===r && tc===c;
+      });
+      if (mv) { playSound('click'); commitMove(stateRef.current, selected.r, selected.c, mv); return; }
+      if (p && humanPiece) {
+        const mvs = getLegalMoves(board, r, c, epTarget, castling);
+        setSelected({r,c}); setLegalCache(mvs); return;
+      }
+      setSelected(null); setLegalCache([]); return;
+    }
+
+    if (p && humanPiece) {
+      const mvs = getLegalMoves(board, r, c, epTarget, castling);
+      setSelected({r,c}); setLegalCache(mvs);
+    }
+  }, [board, selected, legalCache, whiteToMove, gameStatus, aiThinking, gameMode, epTarget, castling, commitMove]);
+
+  const newGame = useCallback(() => {
+    playSound('click');
+    reqId.current++;
+    setBoard(createInitialBoard());
+    setWhiteToMove(true);
+    setEpTarget(null);
+    setCastling(INIT_CASTLING);
+    setGameStatus('play');
+    setSelected(null); setLegalCache([]);
+    setLastFrom(null); setLastTo(null);
+    setAiThinking(false);
+    setTimedOut(false);
+    setTimeLeft(TURN_LIMIT);
+  }, []);
+
+  // Render helpers
+  const checkingKing = gameStatus === 'play' && isInCheck(board, whiteToMove) ? (() => {
+    const k = whiteToMove ? 'K' : 'k';
+    for (let r=0; r<8; r++) for (let c=0; c<8; c++) if (board[r][c]===k) return {r,c};
+    return null;
+  })() : null;
+
+  const { capByBlack, capByWhite, advW, advB } = calcCaptures(board);
+
+  const isHumanTurnActive = gameMode==='pve' && whiteToMove && gameStatus==='play';
+  const isAiTurnActive   = gameMode==='pve' && !whiteToMove && gameStatus==='play';
+
+  let statusText = '';
+  if (gameStatus === 'white_wins') statusText = timedOut ? 'Hết giờ! Đen thắng!' : 'Trắng thắng! 🎉';
+  else if (gameStatus === 'black_wins') statusText = timedOut ? 'Hết giờ! Đen thắng!' : (gameMode==='pve' ? 'Máy thắng! Cố lên!' : 'Đen thắng! 🎉');
+  else if (gameStatus === 'stalemate') statusText = 'Hòa — Pat!';
+  else if (aiThinking) statusText = 'Máy đang suy nghĩ...';
+  else statusText = whiteToMove ? 'Lượt của Trắng' : 'Lượt của Đen';
+
+  return (
+    <div className="game-container">
+      {/* Header */}
+      <div className="game-top-bar">
+        <button onClick={onBack} className="btn-back"><ArrowLeft size={18} /></button>
+        <h1 className="game-title">Cờ Vua</h1>
+        <div style={{ display:'flex', gap:'8px' }}>
+          <button onClick={() => { playSound('click'); setFlipped(f=>!f); }} className="btn-icon-toggle" title="Lật bàn">
+            <FlipHorizontal2 size={18} />
+          </button>
+          <button onClick={() => { playSound('click'); setShowRules(true); }} className="btn-icon-toggle">
+            <HelpCircle size={18} />
+          </button>
+        </div>
+      </div>
+
+      <div className="cv-main">
+        {/* Player panels + board in 3-column row */}
+        <div className="cv-row">
+          {/* Left panel: Black / AI */}
+          <div className={`cv-player-card ${isAiTurnActive ? 'cv-card-active' : ''}`}>
+            <div className="cv-card-head">
+              <div className="cv-stone cv-stone-b" />
+              <div>
+                <div className="cv-card-role">Quân Đen</div>
+                <div className="cv-card-name">{gameMode==='pve' ? 'Máy AI' : 'Người 2'}</div>
+              </div>
+            </div>
+            <div className="cv-score-box">
+              <div className="cv-score-num">{scoreB}</div>
+              <div className="cv-score-lbl">Thắng</div>
+            </div>
+            <div className="cv-cap">{capByBlack || <span style={{color:'var(--color-text-muted)',fontSize:'11px'}}>—</span>}</div>
+            {advB > 0 && <div className="cv-adv">+{advB}</div>}
+            <div className="cv-card-status">{isAiTurnActive ? 'Đang suy nghĩ...' : (gameStatus==='black_wins'?'Thắng!':gameStatus==='white_wins'?'Thua':'Đang chờ...')}</div>
+          </div>
+
+          {/* Board */}
+          <div className="cv-board-col">
+            <div className="cv-board-outer">
+              {/* Rank labels */}
+              <div className="cv-ranks">
+                {Array.from({length:8},(_,vi) => {
+                  const rank = flipped ? vi+1 : 8-vi;
+                  return <div key={vi} className="cv-rank-label">{rank}</div>;
+                })}
+              </div>
+
+              <div className="cv-board-frame">
+                <div className="cv-chess-board">
+                  {Array.from({length:8},(_,vi) => Array.from({length:8},(_,vj) => {
+                    const r = flipped ? 7-vi : vi;
+                    const c = flipped ? 7-vj : vj;
+                    const light = (r+c)%2===0;
+                    const isSel = selected?.r===r && selected?.c===c;
+                    const isLastF = lastFrom?.r===r && lastFrom?.c===c;
+                    const isLastT = lastTo?.r===r && lastTo?.c===c;
+                    const isChk = checkingKing?.r===r && checkingKing?.c===c;
+                    const isVm = legalCache.some(m => {
+                      const tr = m.castle ? (whiteToMove?7:0) : m.r;
+                      const tc = m.castle ? (m.castle==='K'?6:2) : m.c;
+                      return tr===r && tc===c;
+                    });
+                    const p = board[r][c];
+                    const hasP = !!p;
+
+                    let cls = 'cv-sq '+(light?'cv-sq-l':'cv-sq-d');
+                    if (isSel) cls += ' cv-sq-sel';
+                    else if (isLastF||isLastT) cls += ' cv-sq-last';
+                    if (isChk) cls += ' cv-sq-chk';
+                    if (isVm) cls += ' cv-sq-vm'+(hasP?' cv-sq-vm-occ':'');
+
+                    return (
+                      <div key={`${r}-${c}`} className={cls} onClick={() => handleSquareClick(r,c)}>
+                        {p && <span className={isWhitePiece(p)?'cv-piece-w':'cv-piece-b'}>{UNICODE[p]}</span>}
+                        {/* coordinate labels on edge squares */}
+                        {vi===7 && <span className="cv-coord-file">{'abcdefgh'[c]}</span>}
+                      </div>
+                    );
+                  }))}
+                </div>
+              </div>
+            </div>
+
+            {/* Status bar */}
+            <div className={`cv-status-msg ${gameStatus==='white_wins'?'cv-msg-win':gameStatus==='black_wins'?'cv-msg-lose':gameStatus==='stalemate'?'cv-msg-draw':''}`}>
+              {statusText}
+            </div>
+          </div>
+
+          {/* Right panel: White / Human */}
+          <div className={`cv-player-card ${isHumanTurnActive ? 'cv-card-active' : ''}`}>
+            <div className="cv-card-head">
+              <div className="cv-stone cv-stone-w" />
+              <div>
+                <div className="cv-card-role">Quân Trắng</div>
+                <div className="cv-card-name">{gameMode==='pve' ? 'Bạn' : 'Người 1'}</div>
+              </div>
+            </div>
+            <div className="cv-score-box">
+              <div className="cv-score-num">{scoreW}</div>
+              <div className="cv-score-lbl">Thắng</div>
+            </div>
+            <div className="cv-cap">{capByWhite || <span style={{color:'var(--color-text-muted)',fontSize:'11px'}}>—</span>}</div>
+            {advW > 0 && <div className="cv-adv">+{advW}</div>}
+            {/* Timer */}
+            {isHumanTurnActive && (
+              <div className={`cv-timer ${timeLeft<=30?'cv-timer-low':''}`}>
+                <Timer size={13} /> {formatTime(timeLeft)}
+              </div>
+            )}
+            <div className="cv-card-status">{isHumanTurnActive ? 'Lượt của bạn' : (gameStatus==='white_wins'?'Thắng!':gameStatus==='black_wins'?'Thua':'Đang chờ...')}</div>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="cv-controls">
+          {/* Mode */}
+          <div className="cv-mode-row">
+            {['pve','2p'].map(m => (
+              <button key={m} onClick={() => { playSound('click'); setGameMode(m); newGame(); }}
+                className={`cv-mode-chip ${gameMode===m?'cv-mode-sel':''}`}>
+                {m==='pve'?'🤖 vs Máy':'👥 2 Người'}
+              </button>
+            ))}
+          </div>
+
+          {/* Difficulty (PvE only) */}
+          {gameMode==='pve' && (
+            <div className="cv-diff-row">
+              {LEVELS.map(l => (
+                <button key={l.id} onClick={() => { playSound('click'); setDifficulty(l.id); }}
+                  className={`cv-diff-btn ${difficulty===l.id?'cv-diff-sel':''}`}>
+                  {l.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="cv-btn-row">
+            <button onClick={newGame} className="cv-btn-primary">
+              <RotateCcw size={14} style={{marginRight:'6px'}} /> Chơi Lại
+            </button>
+            <button onClick={() => { playSound('click'); setFlipped(f=>!f); }} className="cv-btn-ghost">
+              <FlipHorizontal2 size={14} style={{marginRight:'5px'}} /> Lật Bàn
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Rules modal */}
+      {showRules && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <h3 className="modal-header">Luật chơi Cờ Vua</h3>
+            <div className="modal-body">
+              <p>1. <strong>Mục tiêu:</strong> Chiếu hết (Checkmate) vua đối phương.</p>
+              <p>2. Nhấp vào quân cờ để chọn, các ô hợp lệ sẽ được đánh dấu.</p>
+              <p>3. Nhấp vào ô đánh dấu để di chuyển quân.</p>
+              <p>4. <strong>Nhập thành:</strong> Di chuyển vua sang bên phải/trái 2 ô (nếu đủ điều kiện).</p>
+              <p>5. <strong>Phong cấp:</strong> Tốt đến hàng cuối tự động thành Hậu.</p>
+              <p>6. Trong chế độ vs Máy, bạn có <strong>5 phút</strong> mỗi lượt — hết giờ thua.</p>
+            </div>
+            <div className="modal-footer">
+              <button onClick={() => { playSound('click'); setShowRules(false); }} className="btn-primary-action">
+                Đồng Ý
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

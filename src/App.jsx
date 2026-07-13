@@ -3,6 +3,7 @@ import OAnQuan from './games/o-an-quan/OAnQuan'
 import BauCua from './games/bau-cua/BauCua'
 import CoCaRo from './games/co-ca-ro/CoCaRo'
 import MaTran from './games/ma-tran/MaTran'
+import CoVua from './games/co-vua/CoVua'
 import OnlineRoom from './online/OnlineRoom'
 import { playSound, toggleSound, isSoundEnabled } from './utils/audio'
 import { Volume2, VolumeX, Gamepad2, Info, Wifi, ChevronRight } from 'lucide-react'
@@ -31,6 +32,12 @@ const GAMES = [
     title: 'Ma Trận Lập Phương',
     desc: 'Lật khối 3D khéo léo để lọt hố đích, tránh rơi khỏi khoảng không.',
     tags: ['Giải đố 3D', '12 màn'],
+  },
+  {
+    id: 'co-vua', art: '♛', accent: '#cfa12b', online: false,
+    title: 'Cờ Vua',
+    desc: 'Chiếu hết vua đối phương với chiến thuật đỉnh cao, đấu máy 5 cấp độ.',
+    tags: ['Đấu máy · 5 cấp', '2 người'],
   },
 ];
 
@@ -94,6 +101,9 @@ function App() {
   }
   if (currentGame === 'ma-tran') {
     return <MaTran onBack={leaveCurrentGame} />;
+  }
+  if (currentGame === 'co-vua') {
+    return <CoVua onBack={leaveCurrentGame} />;
   }
 
   return (
