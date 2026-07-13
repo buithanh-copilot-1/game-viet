@@ -20,6 +20,12 @@
   --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-serif: 'Playfair Display', Georgia, serif;
 
+  /* Aliases used by game components */
+  --color-surface: #1a0d0d;
+  --color-border:  rgba(207, 161, 43, 0.18);
+  --color-accent:  #cfa12b;
+  --color-bg:      #0a0505;
+
   font-family: var(--font-sans);
   background-color: var(--color-bg-deep);
   color: var(--color-text-primary);
@@ -2082,6 +2088,23 @@ body {
   .app-container { padding: 14px; }
   .matrix-3d-scene { padding: 18px 6px; }
   :root { --matrix-scale: 0.84; }
+
+  /* ── Lobby ── */
+  /* Vertical centering clips the hero on short phones — start from top instead */
+  .lobby-main { justify-content: flex-start; padding-top: 8px; gap: 20px; }
+  .lobby-hero { gap: 8px; }
+  .lobby-badge-container { width: 56px; height: 56px; }
+  .lobby-title { font-size: 26px; }
+  .lobby-subtitle { font-size: 10px; }
+  .game-card-list { gap: 12px; }
+  .game-card { padding: 13px 12px; gap: 11px; border-radius: 16px; }
+  .game-card-art { width: 46px; height: 46px; font-size: 16px; border-radius: 12px; }
+  .game-card-title { font-size: 16px; }
+  .game-card-desc { font-size: 11px; }
+
+  /* ── All game screens ── */
+  .game-container { padding: 12px; }
+  .game-top-bar { margin-bottom: 12px; padding-bottom: 6px; }
 }
 
 @media (max-width: 400px) {
@@ -2495,20 +2518,68 @@ body {
 
 /* ── Responsive ── */
 @media (max-width: 620px) {
-  .cv-row { grid-template-columns: 1fr; gap: 8px; }
-  .cv-player-card:first-child { order: 1; }
-  .cv-board-col { order: 2; }
-  .cv-player-card:last-child { order: 3; }
-  .cv-player-card {
-    flex-direction: row; padding: 10px 13px;
-    align-items: center; flex-wrap: wrap; gap: 8px;
+  /* Remove horizontal padding — game-container already handles it */
+  .cv-main { padding: 0 0 16px; gap: 10px; }
+
+  /* Both player cards sit side-by-side ABOVE the board */
+  .cv-row {
+    display: grid;
+    grid-template-areas: "bk wh" "bd bd";
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
   }
-  .cv-card-head { flex: 1; }
-  .cv-score-box { flex: 0 0 auto; }
-  .cv-timer { font-size: 18px; }
-  .cv-diff-row { flex-wrap: wrap; justify-content: center; }
-  .cv-sq { font-size: min(9vw, 36px); }
+  .cv-row > .cv-player-card:first-child { grid-area: bk; }
+  .cv-row > .cv-board-col              { grid-area: bd; }
+  .cv-row > .cv-player-card:last-child { grid-area: wh; }
+
+  /* Compact player card — stone + name on left, score on right;
+     timer/status wrap to a second line if present */
+  .cv-player-card {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 8px 10px;
+    gap: 5px;
+  }
+  .cv-card-head  { flex: 1; min-width: 0; gap: 5px; }
+  .cv-stone      { width: 16px; height: 16px; }
+  .cv-card-role  { display: none; }
+  .cv-card-name  { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cv-score-box  { order: 10; flex-shrink: 0; padding: 3px 7px; align-self: center; }
+  .cv-score-num  { font-size: 16px; }
+  .cv-score-lbl  { display: none; }
+  .cv-cap        { display: none; }
+  .cv-adv        { display: none; }
+  .cv-card-status {
+    order: 20; flex-basis: 100%; font-size: 9px; text-align: center;
+    margin-top: -2px;
+  }
+  .cv-timer {
+    order: 20; flex-basis: 100%; font-size: 15px;
+    justify-content: center; margin-top: -2px;
+  }
+
+  /* Board fills full width */
+  .cv-board-outer   { gap: 2px; }
+  .cv-ranks         { width: 10px; }
+  .cv-rank-label    { font-size: 7px; }
+  .cv-board-frame   { box-shadow: 0 0 0 2px #8b5e2c, 0 0 0 4px #4a2e0a; }
+
+  /* Pieces scale to available width */
+  .cv-sq { font-size: min(10.5vw, 40px); }
+
+  /* Status bar */
+  .cv-status-msg { font-size: 12px; padding: 6px 14px; }
+
+  /* Controls */
+  .cv-controls    { gap: 8px; }
+  .cv-diff-row    { flex-wrap: wrap; justify-content: center; }
+  .cv-diff-btn    { padding: 5px 9px; font-size: 11px; }
+  .cv-btn-row     { justify-content: center; }
+  .cv-btn-primary { padding: 9px 18px; font-size: 12px; }
+  .cv-btn-ghost   { padding: 9px 13px; font-size: 12px; }
 }
+
 @media (prefers-reduced-motion: reduce) {
   .cv-timer.cv-timer-low { animation: none; }
   .cv-btn-primary:hover { transform: none; }
