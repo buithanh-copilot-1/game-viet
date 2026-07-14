@@ -6,7 +6,7 @@ import MaTran from './games/ma-tran/MaTran'
 import CoVua from './games/co-vua/CoVua'
 import OnlineRoom from './online/OnlineRoom'
 import { playSound, toggleSound, isSoundEnabled, toggleMusic, isMusicEnabled, startMusic } from './utils/audio'
-import { Volume2, VolumeX, Music, Gamepad2, Info, Wifi, ChevronRight } from 'lucide-react'
+import { Volume2, VolumeX, Music, Gamepad2, Info, Wifi } from 'lucide-react'
 
 const GAMES = [
   {
@@ -153,32 +153,38 @@ function App() {
           <p className="lobby-subtitle">Cổng trò chơi Việt Nam</p>
         </div>
 
-        <div className="game-card-list">
-          {GAMES.map((game) => (
-            <div key={game.id} className="game-card-wrapper" style={{ '--card-accent': game.accent }}>
-              <button onClick={() => selectGame(game.id)} className="game-card">
-                <div className="game-card-art">{game.art}</div>
-                <div className="game-card-info">
-                  <span className="game-card-title">{game.title}</span>
-                  <span className="game-card-desc">{game.desc}</span>
-                  <div className="game-card-tags">
-                    {game.tags.map((tag) => (
-                      <span key={tag} className="game-tag">{tag}</span>
-                    ))}
+        <div className="game-grid">
+          {GAMES.map((game, idx) => {
+            const isSpan = idx === GAMES.length - 1 && GAMES.length % 2 !== 0;
+            return (
+              <div
+                key={game.id}
+                className={`gc${isSpan ? ' gc-span' : ''}`}
+                style={{ '--card-accent': game.accent }}
+                onClick={() => selectGame(game.id)}
+                role="button"
+                tabIndex={0}
+              >
+                <div className="gc-art">
+                  <span className="gc-art-text">{game.art}</span>
+                  {game.online && (
+                    <button
+                      className="gc-online-pill"
+                      onClick={e => { e.stopPropagation(); selectOnlineGame(game.id); }}
+                    >
+                      <Wifi size={9} /> Online
+                    </button>
+                  )}
+                </div>
+                <div className="gc-body">
+                  <span className="gc-title">{game.title}</span>
+                  <div className="gc-tags">
+                    {game.tags.map(tag => <span key={tag} className="gc-tag">{tag}</span>)}
                   </div>
                 </div>
-                <ChevronRight size={20} className="game-card-arrow" />
-              </button>
-              {game.online && (
-                <button
-                  onClick={() => selectOnlineGame(game.id)}
-                  className="game-card-online"
-                >
-                  <Wifi size={12} /> Online
-                </button>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       </main>
 
