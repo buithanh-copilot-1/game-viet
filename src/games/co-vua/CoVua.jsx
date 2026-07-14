@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { playSound } from '../../utils/audio';
 import { ArrowLeft, HelpCircle, RotateCcw, FlipHorizontal2, Timer } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -16,6 +16,15 @@ const TURN_LIMIT = 300;
 
 const formatTime = s => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
 
+/** Find king position for the side to move after a state update */
+function findKing(board, white) {
+  const k = white ? 'K' : 'k';
+  for (let r = 0; r < 8; r++)
+    for (let c = 0; c < 8; c++)
+      if (board[r][c] === k) return { r, c };
+  return null;
+}
+
 export default function CoVua({ onBack }) {
   const [board, setBoard] = useState(createInitialBoard);
   const [whiteToMove, setWhiteToMove] = useState(true);
@@ -27,6 +36,8 @@ export default function CoVua({ onBack }) {
   const [legalCache, setLegalCache] = useState([]);
   const [lastFrom, setLastFrom] = useState(null);
   const [lastTo, setLastTo] = useState(null);
+  // Stored in state so render never calls isInCheck
+  const [checkingKing, setCheckingKing] = useState(null);
 
   const [flipped, setFlipped] = useState(false);
   const [difficulty, setDifficulty] = useState(2);
@@ -84,9 +95,10 @@ export default function CoVua({ onBack }) {
     const cur = stateRef.current;
     setAiThinking(true);
     const id = ++reqId.current;
+    // Short delay lets React flush the move visually before heavy worker compute
     setTimeout(() => {
       workerRef.current?.postMessage({ state: cur, level: difficulty, requestId: id });
-    }, 300);
+    }, 60);
   }, [whiteToMove, gameMode, gameStatus, difficulty]);
 
   const commitMove = useCallback((state, fromR, fromC, mv) => {
@@ -100,8 +112,10 @@ export default function CoVua({ onBack }) {
     setSelected(null);
     setLegalCache([]);
 
+    // Compute check/end-state once here, not on every render
     const moves = getAllLegalMoves(newState.board, newState.whiteToMove, newState.epTarget, newState.castling);
     if (!moves.length) {
+      setCheckingKing(null);
       if (isInCheck(newState.board, newState.whiteToMove)) {
         const winner = newState.whiteToMove ? 'black_wins' : 'white_wins';
         setGameStatus(winner);
@@ -115,6 +129,12 @@ export default function CoVua({ onBack }) {
         setGameStatus('stalemate');
       }
     } else {
+      // Store check position so render never has to call isInCheck
+      if (isInCheck(newState.board, newState.whiteToMove)) {
+        setCheckingKing(findKing(newState.board, newState.whiteToMove));
+      } else {
+        setCheckingKing(null);
+      }
       playSound('click');
     }
   }, []);
@@ -136,12 +156,15 @@ export default function CoVua({ onBack }) {
       });
       if (mv) { playSound('click'); commitMove(stateRef.current, selected.r, selected.c, mv); return; }
       if (p && humanPiece) {
-        setSelected({ r, c }); setLegalCache(getLegalMoves(board, r, c, epTarget, castling)); return;
+        setSelected({ r, c });
+        setLegalCache(getLegalMoves(board, r, c, epTarget, castling));
+        return;
       }
       setSelected(null); setLegalCache([]); return;
     }
     if (p && humanPiece) {
-      setSelected({ r, c }); setLegalCache(getLegalMoves(board, r, c, epTarget, castling));
+      setSelected({ r, c });
+      setLegalCache(getLegalMoves(board, r, c, epTarget, castling));
     }
   }, [board, selected, legalCache, whiteToMove, gameStatus, aiThinking, gameMode, epTarget, castling, commitMove]);
 
@@ -155,25 +178,31 @@ export default function CoVua({ onBack }) {
     setGameStatus('play');
     setSelected(null); setLegalCache([]);
     setLastFrom(null); setLastTo(null);
+    setCheckingKing(null);
     setAiThinking(false);
     setTimedOut(false);
     setTimeLeft(TURN_LIMIT);
   }, []);
 
-  const checkingKing = (gameStatus === 'play' && isInCheck(board, whiteToMove)) ? (() => {
-    const k = whiteToMove ? 'K' : 'k';
-    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (board[r][c] === k) return { r, c };
-    return null;
-  })() : null;
+  // Precompute valid-move squares as a Set: O(1) lookup in render instead of O(n) per square
+  const validSquares = useMemo(() => {
+    const s = new Set();
+    for (const m of legalCache) {
+      const tr = m.castle ? (whiteToMove ? 7 : 0) : m.r;
+      const tc = m.castle ? (m.castle === 'K' ? 6 : 2) : m.c;
+      s.add(`${tr}-${tc}`);
+    }
+    return s;
+  }, [legalCache, whiteToMove]);
 
   const isHumanTurnActive = gameMode === 'pve' && whiteToMove && gameStatus === 'play';
   const isAiTurnActive    = gameMode === 'pve' && !whiteToMove && gameStatus === 'play';
 
   let statusText = '';
-  if (gameStatus === 'white_wins')  statusText = timedOut ? 'Hết giờ — Đen thắng!' : 'Trắng thắng! 🎉';
+  if (gameStatus === 'white_wins')     statusText = timedOut ? 'Hết giờ — Đen thắng!' : 'Trắng thắng! 🎉';
   else if (gameStatus === 'black_wins') statusText = gameMode === 'pve' ? 'Máy thắng! Cố lên!' : 'Đen thắng! 🎉';
-  else if (gameStatus === 'stalemate') statusText = 'Hòa — Pat!';
-  else if (aiThinking) statusText = 'Máy đang suy nghĩ...';
+  else if (gameStatus === 'stalemate')  statusText = 'Hòa — Pat!';
+  else if (aiThinking)                  statusText = 'Máy đang suy nghĩ...';
   else statusText = whiteToMove ? 'Lượt của Trắng ♟' : 'Lượt của Đen ♟';
 
   return (
@@ -189,7 +218,6 @@ export default function CoVua({ onBack }) {
 
       {/* ── Score panel ── */}
       <div className="widget-panel cv-score-panel">
-        {/* Mode switch */}
         <div className="caro-control-row">
           <div className="seg-switch">
             {[['pve', '🤖 vs Máy'], ['2p', '👥 2 Người']].map(([m, label]) => (
@@ -201,9 +229,7 @@ export default function CoVua({ onBack }) {
           </div>
         </div>
 
-        {/* Player cards */}
         <div className="vs-scoreboard">
-          {/* Black / AI */}
           <div className={`vs-score-card ${isAiTurnActive ? 'active' : ''}`}>
             <div className="score-card-label">
               <span className="cv-stone cv-stone-b" style={{ width: 10, height: 10, display: 'inline-block', marginRight: 5, verticalAlign: 'middle' }} />
@@ -215,7 +241,6 @@ export default function CoVua({ onBack }) {
             </div>
           </div>
 
-          {/* White / Human */}
           <div className={`vs-score-card ${isHumanTurnActive ? 'active' : ''}`}>
             <div className="score-card-label">
               <span className="cv-stone cv-stone-w" style={{ width: 10, height: 10, display: 'inline-block', marginRight: 5, verticalAlign: 'middle' }} />
@@ -245,35 +270,33 @@ export default function CoVua({ onBack }) {
         </div>
         <div className="cv-board-frame">
           <div className="cv-chess-board">
-            {Array.from({ length: 8 }, (_, vi) => Array.from({ length: 8 }, (_, vj) => {
+            {Array.from({ length: 64 }, (_, i) => {
+              const vi = i >> 3;          // Math.floor(i / 8)
+              const vj = i & 7;           // i % 8
               const r = flipped ? 7 - vi : vi;
               const c = flipped ? 7 - vj : vj;
               const light = (r + c) % 2 === 0;
+              const p     = board[r][c];
               const isSel   = selected?.r === r && selected?.c === c;
               const isLastF = lastFrom?.r === r && lastFrom?.c === c;
-              const isLastT = lastTo?.r === r && lastTo?.c === c;
+              const isLastT = lastTo?.r   === r && lastTo?.c   === c;
               const isChk   = checkingKing?.r === r && checkingKing?.c === c;
-              const isVm = legalCache.some(m => {
-                const tr = m.castle ? (whiteToMove ? 7 : 0) : m.r;
-                const tc = m.castle ? (m.castle === 'K' ? 6 : 2) : m.c;
-                return tr === r && tc === c;
-              });
-              const p    = board[r][c];
-              const hasP = !!p;
+              const isVm    = validSquares.has(`${r}-${c}`);
+              const hasP    = !!p;
 
               let cls = 'cv-sq ' + (light ? 'cv-sq-l' : 'cv-sq-d');
               if (isSel) cls += ' cv-sq-sel';
               else if (isLastF || isLastT) cls += ' cv-sq-last';
               if (isChk) cls += ' cv-sq-chk';
-              if (isVm) cls += ' cv-sq-vm' + (hasP ? ' cv-sq-vm-occ' : '');
+              if (isVm)  cls += ' cv-sq-vm' + (hasP ? ' cv-sq-vm-occ' : '');
 
               return (
-                <div key={`${r}-${c}`} className={cls} onClick={() => handleSquareClick(r, c)}>
+                <div key={i} className={cls} onClick={() => handleSquareClick(r, c)}>
                   {p && <span className={isWhitePiece(p) ? 'cv-piece-w' : 'cv-piece-b'}>{UNICODE[p]}</span>}
                   {vi === 7 && <span className="cv-coord-file">{'abcdefgh'[c]}</span>}
                 </div>
               );
-            }))}
+            })}
           </div>
         </div>
       </div>
