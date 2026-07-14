@@ -102,6 +102,10 @@ export default function CoVua({ onBack }) {
   }, [whiteToMove, gameMode, gameStatus, difficulty]);
 
   const commitMove = useCallback((state, fromR, fromC, mv) => {
+    // Classify move before applying (needed for sound selection)
+    const isCapture = !mv.castle && (!!state.board[mv.r]?.[mv.c] || !!mv.ep);
+    const isCastle  = !!mv.castle;
+
     const newState = applyMoveToState(state, fromR, fromC, mv);
     setBoard(newState.board);
     setWhiteToMove(newState.whiteToMove);
@@ -132,10 +136,13 @@ export default function CoVua({ onBack }) {
       // Store check position so render never has to call isInCheck
       if (isInCheck(newState.board, newState.whiteToMove)) {
         setCheckingKing(findKing(newState.board, newState.whiteToMove));
+        playSound('check');
       } else {
         setCheckingKing(null);
+        if (isCastle)       playSound('castle');
+        else if (isCapture) playSound('capture');
+        else                playSound('place');
       }
-      playSound('click');
     }
   }, []);
 
@@ -154,7 +161,7 @@ export default function CoVua({ onBack }) {
         const tr = m.castle ? (whiteToMove ? 7 : 0) : m.r;
         return tr === r && tc === c;
       });
-      if (mv) { playSound('click'); commitMove(stateRef.current, selected.r, selected.c, mv); return; }
+      if (mv) { commitMove(stateRef.current, selected.r, selected.c, mv); return; }
       if (p && humanPiece) {
         setSelected({ r, c });
         setLegalCache(getLegalMoves(board, r, c, epTarget, castling));

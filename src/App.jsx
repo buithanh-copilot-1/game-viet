@@ -1,12 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import OAnQuan from './games/o-an-quan/OAnQuan'
 import BauCua from './games/bau-cua/BauCua'
 import CoCaRo from './games/co-ca-ro/CoCaRo'
 import MaTran from './games/ma-tran/MaTran'
 import CoVua from './games/co-vua/CoVua'
 import OnlineRoom from './online/OnlineRoom'
-import { playSound, toggleSound, isSoundEnabled } from './utils/audio'
-import { Volume2, VolumeX, Gamepad2, Info, Wifi, ChevronRight } from 'lucide-react'
+import { playSound, toggleSound, isSoundEnabled, toggleMusic, isMusicEnabled, startMusic } from './utils/audio'
+import { Volume2, VolumeX, Music, Gamepad2, Info, Wifi, ChevronRight } from 'lucide-react'
 
 const GAMES = [
   {
@@ -44,15 +44,33 @@ const GAMES = [
 function App() {
   const [currentGame, setCurrentGame] = useState(null);
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
+  const [musicOn, setMusicOn] = useState(isMusicEnabled());
   const [onlineGameId, setOnlineGameId] = useState(null);
   const [onlineSession, setOnlineSession] = useState(null);
+  const musicStarted = useRef(false);
+
+  // Start music on first user interaction (browsers require gesture before audio)
+  useEffect(() => {
+    const start = () => {
+      if (!musicStarted.current && isMusicEnabled()) {
+        musicStarted.current = true;
+        startMusic();
+      }
+    };
+    document.addEventListener('click', start, { once: true });
+    return () => document.removeEventListener('click', start);
+  }, []);
 
   const handleToggleSound = () => {
     const newState = toggleSound();
     setSoundOn(newState);
-    if (newState) {
-      playSound('click');
-    }
+    if (newState) playSound('click');
+  };
+
+  const handleToggleMusic = () => {
+    const newState = toggleMusic();
+    setMusicOn(newState);
+    if (newState) musicStarted.current = true;
   };
 
   const selectGame = (gameId) => {
@@ -114,9 +132,16 @@ function App() {
           <span className="brand-title">Folk Games</span>
         </div>
 
-        <button onClick={handleToggleSound} className="btn-icon-toggle">
-          {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
-        </button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={handleToggleMusic} className="btn-icon-toggle"
+            title={musicOn ? 'Tắt nhạc nền' : 'Bật nhạc nền'}
+            style={{ opacity: musicOn ? 1 : 0.35 }}>
+            <Music size={18} />
+          </button>
+          <button onClick={handleToggleSound} className="btn-icon-toggle">
+            {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          </button>
+        </div>
       </header>
 
       <main className="lobby-main">
